@@ -37,11 +37,13 @@ namespace PCG.Generation
             // corta ate chegar no numero de comodos desejado
             while (areas.Count < targetRooms)
             {
-                int index = PickBiggest(areas);
-                Area target = areas[index];
+                int index = PickBiggestSplittable(areas);
 
-                if (!TrySplit(target, out Area a, out Area b))
-                    break;   // nenhum corte possivel, para por aqui
+                if (index < 0)
+                    break;   // nenhum comodo pode mais ser cortado
+
+                Area target = areas[index];
+                TrySplit(target, out Area a, out Area b);
 
                 areas.RemoveAt(index);
                 areas.Add(a);
@@ -94,6 +96,29 @@ namespace PCG.Generation
             }
 
             return best;
+        }
+
+        // o maior comodo que ainda pode ser cortado. -1 se nenhum pode.
+        private int PickBiggestSplittable(List<Area> areas)
+        {
+            int best = -1;
+
+            for (int i = 0; i < areas.Count; i++)
+            {
+                if (!CanSplit(areas[i]))
+                    continue;
+
+                if (best < 0 || areas[i].Size > areas[best].Size)
+                    best = i;
+            }
+
+            return best;
+        }
+
+        // cabe corte em pelo menos um dos sentidos?
+        private bool CanSplit(Area area)
+        {
+            return area.Width >= minRoomSize * 2 || area.Height >= minRoomSize * 2;
         }
 
         // acha o indice do menor retangulo da lsita

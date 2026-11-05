@@ -12,6 +12,24 @@ public class HouseBuilder : MonoBehaviour
 
     void Start()
     {
+        Build();
+    }
+    void Update()
+    {
+        // R gera uma casa nova com semente random
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            seed = Random.Range(0, 999999);
+            Build();
+        }
+    }
+
+    void Build()
+    {
+        // apaga a casa anterior pra montar uma nova caso aperte R
+        foreach (Transform child in transform)
+            Destroy(child.gameObject);
+        
         HouseGenerator generator = new HouseGenerator(minRoomSize, targetRooms, seed);
         FloorPlan plan = generator.Generate(new Area(0, 0, houseWidth, houseHeight), seed);
 
@@ -42,10 +60,10 @@ public class HouseBuilder : MonoBehaviour
     // uma cor p cada tipo
     Color ColorFor(RoomType type)
     {
-        if (type == RoomType.Living) return new Color(0.80f, 0.75f, 0.60f);
-        if (type == RoomType.Kitchen) return new Color(0.70f, 0.78f, 0.70f);
-        if (type == RoomType.Bathroom) return new Color(0.65f, 0.75f, 0.85f);
+        if (type == RoomType.Living) return new Color(0.78f, 0.42f, 0.20f);    // laranja
+        if (type == RoomType.Kitchen) return new Color(0.30f, 0.60f, 0.32f);   // verde
+        if (type == RoomType.Bathroom) return new Color(0.22f, 0.48f, 0.78f);  // azul
 
-        return new Color(0.85f, 0.80f, 0.78f);   // quarto
+        return new Color(0.58f, 0.42f, 0.75f);   // quarto, roxo
     }
 }
