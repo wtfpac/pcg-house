@@ -9,6 +9,8 @@ public class HouseBuilder : MonoBehaviour
     public int houseHeight = 9;
     public int minRoomSize = 3;
     public int targetRooms = 5;
+    public float wallHeight = 2.8f;
+    public float wallThickness = 0.15f;
 
     void Start()
     {
@@ -21,6 +23,14 @@ public class HouseBuilder : MonoBehaviour
         {
             seed = Random.Range(0, 999999);
             Build();
+        }
+
+        // P salva um print na pasta do projeto
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            string file = "print_seed" + seed + ".png";
+            ScreenCapture.CaptureScreenshot(file);
+            Debug.Log("print salvo: " + file);
         }
     }
 
@@ -35,10 +45,14 @@ public class HouseBuilder : MonoBehaviour
 
         Debug.Log("comodos gerados: " + plan.RoomCount);
 
+        var edges = RoomGraph.Build(plan.Rooms, 2);
+        Debug.Log("conexoes entre comodos: " + edges.Count);
+
         foreach (Room room in plan.Rooms)
             CreateFloor(room);
-    }
 
+        BuildWalls(plan);
+    }
     // cria uma laje fina no lugar do comodo, com cor confome o tipo
     void CreateFloor(Room room)
     {
@@ -55,6 +69,54 @@ public class HouseBuilder : MonoBehaviour
         go.transform.localScale = new Vector3(room.Area.Width, 0.1f, room.Area.Height);
 
         go.GetComponent<Renderer>().material.color = ColorFor(room.Type);     
+    }
+
+    // varre a grade e poe parede onde duas celulas vizinhas
+    // pertencem a comodos diferentes, ou onde faz borda com a rua
+    void BuildWalls(FloorPlan plan)
+    {
+        CellMap map = new CellMap(plan);
+        Area b = plan.Bounds;
+
+        for (int x = 0; x < b.Width; x++)
+        {
+            for (int y = 0; y < b.Height; y++)
+            {
+                int here = map.At(x, y);
+
+                if (here == CellMap.Outside)
+                    continue;
+
+                // vizinho da direita
+                if (map.At(x + 1, y) != here)
+                    CreateWall(x + 1, y + 0.5f, wallThickness, 1f);
+
+                // vizinho de baixo
+                if (map.At(x, y + 1) != here)
+                    CreateWall(x + 0.5f, y + 1, 1f, wallThickness);
+
+                // borda esquerda e de cima so existem na primeira
+                // coluna e primeira linha, onde nao ha celula anterior
+                if (x == 0)
+                    CreateWall(x, y + 0.5f, wallThickness, 1f);
+
+                if (y == 0)
+                    CreateWall(x + 0.5f, y, 1f, wallThickness);
+            }
+        }
+    }
+
+    // cria um blodco d parede na posiçao e tamanho informados
+    void CreateWall(float x, float z, float sizeX, float sizeZ)
+    {
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "Wall";
+        go.transform.parent = transform;
+
+        go.transform.position = new Vector3(x , wallHeight / 2f, z);
+        go.transform.localScale = new Vector3(sizeX, wallHeight, sizeZ);
+
+        go.GetComponent<Renderer>().material.color = new Color(0.90f, 0.88f, 0.84f);
     }
 
     // uma cor p cada tipo
