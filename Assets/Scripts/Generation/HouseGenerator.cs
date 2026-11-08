@@ -7,177 +7,170 @@ namespace PCG.Generation
     public class HouseGenerator
     {
         private readonly int minRoomSize;   // menor lado aceitavel de um comodo
-        private readonly int targetRooms;   // quantos comodos queremos
         private readonly System.Random random;
 
-        public HouseGenerator(int minRoomSize, int targetRooms, int seed)
+        public HouseGenerator(int minRoomSize, int seed)
         {
             this.minRoomSize = minRoomSize;
-            this.targetRooms = targetRooms;
             this.random = new System.Random(seed);
         }
 
-        // ponto de entrada; corta o espaço e da um tipo pra cada comodo
+        // ponto de entrada. parte a casa em faixa da sala e faixa dos comodos.
         public FloorPlan Generate(Area bounds, int seed)
         {
             FloorPlan plan = new FloorPlan(bounds, seed);
 
-            List<Area> areas = SplitSpace(bounds);
-            AssingTypes(plan, areas);
+            // a sala ocupa entre 35% e 45% da casa, encostada numa borda
+            bool socialAtBottom = random.Next(2) == 0;
+            int socialDepth = PickSocialDepth(bounds.Height);
+
+            Area social;   // faixa da sala e cozinha
+            Area rest;     // faixa dos quartos e banheiro
+
+            if (socialAtBottom)
+            {
+                rest = new Area(bounds.X, bounds.Y, bounds.Width, bounds.Height - socialDepth);
+                social = new Area(bounds.X, bounds.Y + rest.Height, bounds.Width, socialDepth);
+            }
+            else
+            {
+                social = new Area(bounds.X, bounds.Y, bounds.Width, socialDepth);
+                rest = new Area(bounds.X, bounds.Y + socialDepth, bounds.Width, bounds.Height - socialDepth);
+            }
+
+            BuildSocial(plan, social);
+            BuildPrivate(plan, rest);
 
             return plan;
         }
 
-        // devolve a lista de retangulos. ainda sem tipo de comodo.
-        public List<Area> SplitSpace(Area bounds)
+
+        // profundidade da faixa social, entre 35% e 45% da altura
+        private int PickSocialDepth(int totalHeight)
         {
-            List<Area> areas = new List<Area>();
-            areas.Add(bounds);   // comeca com a casa inteira
+            int min = (int)(totalHeight * 0.35f);
+            int max = (int)(totalHeight * 0.45f);
 
-            // corta ate chegar no numero de comodos desejado
-            while (areas.Count < targetRooms)
-            {
-                int index = PickBiggestSplittable(areas);
+            if (min < minRoomSize)
+                min = minRoomSize;
 
-                if (index < 0)
-                    break;   // nenhum comodo pode mais ser cortado
+            if (max < min)
+                max = min;
 
-                Area target = areas[index];
-                TrySplit(target, out Area a, out Area b);
-
-                areas.RemoveAt(index);
-                areas.Add(a);
-                areas.Add(b);
-            }
-
-            return areas;
+            return random.Next(min, max + 1);
         }
 
-        // regra de atribuiçao, maior vira sala, menor vira banheiro, 
-        // o maior dos q sobrou vira a cozinha, resto vira quartos
-        private void AssingTypes(FloorPlan plan, List<Area> areas)
+        // a faixa social vira sala mais cozinha, com um corte so
+        private void BuildSocial(FloorPlan plan, Area social)
         {
-            List<Area> pending = new List<Area>(areas);
-
-            // sala = maior d tods
-            int index = PickBiggest(pending);
-            plan.Rooms.Add(new Room(pending[index], RoomType.Living));
-            pending.RemoveAt(index);
-            // banheiro: o menor dos q sobrou
-            if (pending.Count > 0)
+            // se nao couber dividir, a faixa inteira vira sala
+            if (social.Width < minRoomSize * 2)
             {
-                index = PickSmallest(pending);
-                plan.Rooms.Add(new Room(pending[index], RoomType.Bathroom));
-                pending.RemoveAt(index);
+                plan.Rooms.Add(new Room(social, RoomType.Living));
+                return;
             }
 
-            //cozinha: maior dos q sobrou
-            if (pending.Count > 0)
+            // a cozinha fica num dos cantos, ocupando entre 30% e 40%
+            int kitchenWidth = PickPart(social.Width, 0.30f, 0.40f);
+            bool kitchenOnRight = random.Next(2) == 0;
+
+            Area living;
+            Area kitchen;
+
+            if (kitchenOnRight)
             {
-                index = PickBiggest(pending);
-                plan.Rooms.Add(new Room(pending[index], RoomType.Kitchen));
-                pending.RemoveAt(index);
-            }
-
-            // todo o resto vira quarto
-            foreach (Area a in pending)
-                plan.Rooms.Add(new Room(a, RoomType.Bedroom));
-        }
-
-        // acha o indice do maior retangulo da lista
-        private int PickBiggest(List<Area> areas)
-        {
-            int best = 0;
-
-            for (int i = 1; i < areas.Count; i++)
-            {
-                if (areas[i].Size > areas[best].Size)
-                    best = i;
-            }
-
-            return best;
-        }
-
-        // o maior comodo que ainda pode ser cortado. -1 se nenhum pode.
-        private int PickBiggestSplittable(List<Area> areas)
-        {
-            int best = -1;
-
-            for (int i = 0; i < areas.Count; i++)
-            {
-                if (!CanSplit(areas[i]))
-                    continue;
-
-                if (best < 0 || areas[i].Size > areas[best].Size)
-                    best = i;
-            }
-
-            return best;
-        }
-
-        // cabe corte em pelo menos um dos sentidos?
-        private bool CanSplit(Area area)
-        {
-            return area.Width >= minRoomSize * 2 || area.Height >= minRoomSize * 2;
-        }
-
-        // acha o indice do menor retangulo da lsita
-        private int PickSmallest(List<Area> areas)
-        {
-            int best = 0;
-
-            for (int i = 1; i < areas.Count; i++)
-            {
-                if (areas[i].Size < areas[best].Size)
-                    best = i;
-            }
-
-            return best;
-        }
-
-        // tenta cortar um retangulo em dois. devolve false se nao couber.
-        private bool TrySplit(Area area, out Area first, out Area second)
-        {
-            first = area;
-            second = area;
-
-            // so da pra cortar se couberem dois comodos do tamanho minimo
-            bool canCutVertical = area.Width >= minRoomSize * 2;
-            bool canCutHorizontal = area.Height >= minRoomSize * 2;
-
-            if (!canCutVertical && !canCutHorizontal)
-                return false;
-
-            // corta no sentido que deixa os comodos menos compridos.
-            // se so um sentido cabe, usa ele.
-            bool cutVertical;
-
-            if (canCutVertical && canCutHorizontal)
-                cutVertical = area.Width >= area.Height;
-            else
-                cutVertical = canCutVertical;
-
-            if (cutVertical)
-            {
-                int cut = PickCut(area.Width);
-                first = new Area(area.X, area.Y, cut, area.Height);
-                second = new Area(area.X + cut, area.Y, area.Width - cut, area.Height);
+                living = new Area(social.X, social.Y, social.Width - kitchenWidth, social.Height);
+                kitchen = new Area(social.Right - kitchenWidth, social.Y, kitchenWidth, social.Height);
             }
             else
             {
-                int cut = PickCut(area.Height);
-                first = new Area(area.X, area.Y, area.Width, cut);
-                second = new Area(area.X, area.Y + cut, area.Width, area.Height - cut);
+                kitchen = new Area(social.X, social.Y, kitchenWidth, social.Height);
+                living = new Area(social.X + kitchenWidth, social.Y, social.Width - kitchenWidth, social.Height);
             }
 
-            return true;
+            plan.Rooms.Add(new Room(living, RoomType.Living));
+            plan.Rooms.Add(new Room(kitchen, RoomType.Kitchen));
         }
 
-        // sorteia onde cortar, sem deixar nenhum lado menor que o minimo
-        private int PickCut(int length)
+        // a faixa intima e fatiada em colunas, entao todo comodo
+        // encosta na faixa social que esta logo acima ou abaixo
+        private void BuildPrivate(FloorPlan plan, Area rest)
         {
-            int min = minRoomSize;
-            int max = length - minRoomSize;
+                        // largura confortavel pra um quarto
+            int comfortableWidth = minRoomSize + 2;
+            int bathroomWidth = minRoomSize;
+
+            // quantos quartos cabem, reservando ja um banheiro
+            int maxBedrooms = (rest.Width - bathroomWidth) / comfortableWidth;
+
+            if (maxBedrooms < 1)
+                maxBedrooms = 1;
+
+            if (maxBedrooms > 3)
+                maxBedrooms = 3;
+
+            int bedroomCount = random.Next(1, maxBedrooms + 1);
+
+            // regra: a partir de 3 quartos, a casa ganha um segundo banheiro
+            int bathroomCount = bedroomCount >= 3 ? 2 : 1;
+
+            // so cabe o segundo banheiro se ainda sobrar espaco
+            if (rest.Width - bathroomCount * bathroomWidth < bedroomCount * minRoomSize)
+                bathroomCount = 1;
+
+            int count = bedroomCount + bathroomCount;
+
+            int bedroomSpace = rest.Width - bathroomCount * bathroomWidth;
+            int baseWidth = bedroomSpace / bedroomCount;
+            int leftover = bedroomSpace - baseWidth * bedroomCount;
+
+            // sorteia em quais posicoes da fileira entram os banheiros
+            HashSet<int> bathroomSlots = new HashSet<int>();
+
+            while (bathroomSlots.Count < bathroomCount)
+                bathroomSlots.Add(random.Next(count));
+
+            int offset = 0;
+            int bedroomsDone = 0;
+
+            for (int i = 0; i < count; i++)
+            {
+                int width;
+                RoomType type;
+
+                if (bathroomSlots.Contains(i))
+                {
+                    width = bathroomWidth;
+                    type = RoomType.Bathroom;
+                }
+                else
+                {
+                    width = baseWidth + (bedroomsDone < leftover ? 1 : 0);
+                    type = RoomType.Bedroom;
+                    bedroomsDone++;
+                }
+
+                plan.Rooms.Add(new Room(new Area(rest.X + offset, rest.Y, width, rest.Height), type));
+
+                offset += width;
+            }
+        }
+
+        // sorteia um pedaco de um comprimento, dentro de uma faixa percentual,
+        // sem deixar nenhum lado menor que o minimo
+        private int PickPart(int total, float minPercent, float maxPercent)
+        {
+            int min = (int)(total * minPercent);
+            int max = (int)(total * maxPercent);
+
+            if (min < minRoomSize)
+                min = minRoomSize;
+
+            if (max > total - minRoomSize)
+                max = total - minRoomSize;
+
+            if (max < min)
+                max = min;
 
             return random.Next(min, max + 1);
         }

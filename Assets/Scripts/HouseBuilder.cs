@@ -1,5 +1,6 @@
 using UnityEngine;
 using PCG.Generation;
+using System.Collections.Generic;
 
 // le a platna gerada e constroi o chao de cada comodo na cena
 public class HouseBuilder : MonoBehaviour
@@ -8,9 +9,9 @@ public class HouseBuilder : MonoBehaviour
     public int houseWidth = 12;
     public int houseHeight = 9;
     public int minRoomSize = 3;
-    public int targetRooms = 5;
     public float wallHeight = 2.8f;
     public float wallThickness = 0.15f;
+    private HashSet<DoorPlacer.WallKey> doors;
 
     void Start()
     {
@@ -40,13 +41,16 @@ public class HouseBuilder : MonoBehaviour
         foreach (Transform child in transform)
             Destroy(child.gameObject);
         
-        HouseGenerator generator = new HouseGenerator(minRoomSize, targetRooms, seed);
+        HouseGenerator generator = new HouseGenerator(minRoomSize, seed);
         FloorPlan plan = generator.Generate(new Area(0, 0, houseWidth, houseHeight), seed);
 
         Debug.Log("comodos gerados: " + plan.RoomCount);
 
         var edges = RoomGraph.Build(plan.Rooms, 2);
         Debug.Log("conexoes entre comodos: " + edges.Count);
+
+        doors = DoorPlacer.Place(plan, edges);
+        Debug.Log("portas abertas: " + doors.Count);
 
         foreach (Room room in plan.Rooms)
             CreateFloor(room);
@@ -88,11 +92,11 @@ public class HouseBuilder : MonoBehaviour
                     continue;
 
                 // vizinho da direita
-                if (map.At(x + 1, y) != here)
+                if (map.At(x + 1, y) != here && !IsDoor(true, x + 1, y))
                     CreateWall(x + 1, y + 0.5f, wallThickness, 1f);
 
                 // vizinho de baixo
-                if (map.At(x, y + 1) != here)
+                if (map.At(x, y + 1) != here && !IsDoor(false, x, y + 1))
                     CreateWall(x + 0.5f, y + 1, 1f, wallThickness);
 
                 // borda esquerda e de cima so existem na primeira
@@ -104,6 +108,12 @@ public class HouseBuilder : MonoBehaviour
                     CreateWall(x + 0.5f, y, 1f, wallThickness);
             }
         }
+    }
+
+    // essa celula de parede virou porta?
+    bool IsDoor(bool vertical, int x, int y)
+    {
+        return doors.Contains(new DoorPlacer.WallKey(vertical, x, y));
     }
 
     // cria um blodco d parede na posiçao e tamanho informados
