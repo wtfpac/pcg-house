@@ -1,0 +1,153 @@
+using System.Collections.Generic;
+
+namespace PCG.Generation
+{
+    // verifica se uma planta respeita as regras espaciais do projeto.
+    // cada metodo e uma regra, testada separadamente.
+    public static class PlanValidator
+    {
+        // qual regra reprovou a ultima planta testada
+        public enum Failure
+        {
+            None,
+            Overlap,
+            Facade,
+            Circulation,
+            CirculationSplit
+        }
+
+        private static bool IsCirculation(RoomType type)
+        {
+            return type == RoomType.Living || type == RoomType.Hall;
+        }
+
+        // regra 1: nenhum comodo invade o espaco de outro
+        public static bool NoOverlap(FloorPlan plan)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                for (int j = i + 1; j < plan.Rooms.Count; j++)
+                {
+                    Area a = plan.Rooms[i].Area;
+                    Area b = plan.Rooms[j].Area;
+
+                    // dois retangulos se cruzam quando ha sobreposicao
+                    // nos dois eixos ao mesmo tempo
+                    bool crossX = Adjacency.Overlap(a.X, a.Right, b.X, b.Right) > 0;
+                    bool crossY = Adjacency.Overlap(a.Y, a.Bottom, b.Y, b.Bottom) > 0;
+
+                    if (crossX && crossY)
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        // regra 2: todo comodo encosta em parede externa, pra poder ter janela.
+        // o hall e excecao: corredor nao precisa de janela.
+        public static bool EveryRoomTouchesFacade(FloorPlan plan)
+        {
+            foreach (Room room in plan.Rooms)
+            {
+                if (room.Type == RoomType.Hall)
+                    continue;
+
+                Area a = room.Area;
+                Area b = plan.Bounds;
+
+                bool touches = a.X == b.X || a.Right == b.Right
+                            || a.Y == b.Y || a.Bottom == b.Bottom;
+
+                if (!touches)
+                    return false;
+            }
+
+            return true;
+        }
+
+        // regra 3: todo comodo encosta em algum comodo de circulacao
+        public static bool EveryRoomTouchesCirculation(FloorPlan plan, int minShared)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                if (IsCirculation(plan.Rooms[i].Type))
+                    continue;
+
+                if (!TouchesAnyCirculation(plan, i, minShared))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool TouchesAnyCirculation(FloorPlan plan, int index, int minShared)
+        {
+            for (int j = 0; j < plan.Rooms.Count; j++)
+            {
+                if (j == index || !IsCirculation(plan.Rooms[j].Type))
+                    continue;
+
+                if (Adjacency.AreNeighbours(plan.Rooms[index].Area,
+                                            plan.Rooms[j].Area, minShared))
+                    return true;
+            }
+
+            return false;
+        }
+
+        // regra 4: os comodos de circulacao estao ligados entre si
+        public static bool CirculationIsConnected(FloorPlan plan, int minShared)
+        {
+            List<int> circulation = new List<int>();
+
+            for (int i = 0; i < plan.Rooms.Count; i++)
+                if (IsCirculation(plan.Rooms[i].Type))
+                    circulation.Add(i);
+
+            if (circulation.Count <= 1)
+                return true;
+
+            foreach (int i in circulation)
+            {
+                bool linked = false;
+
+                foreach (int j in circulation)
+                {
+                    if (i == j)
+                        continue;
+
+                    if (Adjacency.AreNeighbours(plan.Rooms[i].Area,
+                                                plan.Rooms[j].Area, minShared))
+                    {
+                        linked = true;
+                        break;
+                    }
+                }
+
+                if (!linked)
+                    return false;
+            }
+
+            return true;
+        }
+
+        // roda todas as regras e diz qual falhou primeiro
+        public static Failure Check(FloorPlan plan, int minShared)
+        {
+            if (!NoOverlap(plan))
+                return Failure.Overlap;
+
+            if (!EveryRoomTouchesFacade(plan))
+                return Failure.Facade;
+
+            if (!EveryRoomTouchesCirculation(plan, minShared))
+                return Failure.Circulation;
+
+            if (!CirculationIsConnected(plan, minShared))
+                return Failure.CirculationSplit;
+
+            return Failure.None;
+        }
+    }
+}

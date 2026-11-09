@@ -1,11 +1,12 @@
 namespace PCG.Generation
 {
-    //tipos de comodo que a casa pode ter
+    // tipos de comodo de uma casa
     public enum RoomType
     {
         Living,
         Kitchen,
         Bathroom,
-        Bedroom
+        Bedroom,
+        Hall        // circulacao, conecta a sala aos quartos
     }
 }
