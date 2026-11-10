@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // encurta o corredor nas pontas e estende os comodos vizinhos
-    // pra ocupar o espaco liberado. todo mundo continua retangular.
+    // encurta o corredor nas pontas e doa o espaco liberado ao comodo
+    // vizinho. o comodo pode ficar em L, por isso guardamos em Parts.
     public static class CorridorTrimmer
     {
         public static void Trim(List<Room> rooms, System.Random rng, int minLength)
@@ -20,47 +20,7 @@ namespace PCG.Generation
                 if (rng.Next(4) == 0)
                     continue;
 
-                TrimOneEnd(rooms, hall, minLength);
-            }
-        }
-
-        // encurta uma ponta, se achar um comodo que encaixe
-        private static void TrimOneEnd(List<Room> rooms, int hall, int minLength)
-        {
-            Area h = rooms[hall].Area;
-            bool horizontal = h.Width >= h.Height;
-
-            int target = FindEndRoom(rooms, hall, horizontal, minLength);
-
-            if (target < 0)
-                return;
-
-            Area t = rooms[target].Area;
-
-            if (horizontal)
-            {
-                bool atRight = t.Right == h.Right;
-
-                rooms[hall].Area = atRight
-                    ? new Area(h.X, h.Y, h.Width - t.Width, h.Height)
-                    : new Area(h.X + t.Width, h.Y, h.Width - t.Width, h.Height);
-
-                // o comodo cresce na direcao do corredor
-                rooms[target].Area = t.Bottom == h.Y
-                    ? new Area(t.X, t.Y, t.Width, t.Height + h.Height)
-                    : new Area(t.X, t.Y - h.Height, t.Width, t.Height + h.Height);
-            }
-            else
-            {
-                bool atBottom = t.Bottom == h.Bottom;
-
-                rooms[hall].Area = atBottom
-                    ? new Area(h.X, h.Y, h.Width, h.Height - t.Height)
-                    : new Area(h.X, h.Y + t.Height, h.Width, h.Height - t.Height);
-
-                rooms[target].Area = t.Right == h.X
-                    ? new Area(t.X, t.Y, t.Width + h.Width, t.Height)
-                    : new Area(t.X - h.Width, t.Y, t.Width + h.Width, t.Height);
+                TrimOneEnd(rooms, hall, rng, minLength);
             }
         }
 
@@ -73,35 +33,97 @@ namespace PCG.Generation
             return -1;
         }
 
-        // acha um comodo alinhado com uma das pontas do corredor,
-        // que possa crescer sem deixar o corredor curto demais
-        private static int FindEndRoom(List<Room> rooms, int hall, bool horizontal,
-                                       int minLength)
+        private static void TrimOneEnd(List<Room> rooms, int hall,
+                                       System.Random rng, int minLength)
         {
             Area h = rooms[hall].Area;
+            bool horizontal = h.Width >= h.Height;
+            int length = horizontal ? h.Width : h.Height;
 
+            if (length <= minLength)
+                return;
+
+            // quanto da ponta cortar
+            // corte minimo de 3 celulas, senao a sobra e inutil
+            int minCut = 3;
+
+            if (length - minLength < minCut)
+                return;   // nao da pra cortar um pedaco util
+
+            int cut = rng.Next(minCut, length - minLength + 1);            bool fromEnd = rng.Next(2) == 0;
+
+            Area strip = CutStrip(h, cut, fromEnd, horizontal);
+
+            // quem recebe o pedaco: um comodo encostado nele
+            int target = FindReceiver(rooms, hall, strip, horizontal);
+
+            if (target < 0)
+                return;
+
+            // encurta o corredor
+            rooms[hall].Area = Shorten(h, cut, fromEnd, horizontal);
+
+            // o pedaco vira uma parte nova do comodo vizinho
+            rooms[target].Parts.Add(strip);
+        }
+
+        // o retangulo que vai ser doado
+        private static Area CutStrip(Area h, int cut, bool fromEnd, bool horizontal)
+        {
+            if (horizontal)
+            {
+                int x = fromEnd ? h.Right - cut : h.X;
+                return new Area(x, h.Y, cut, h.Height);
+            }
+
+            int y = fromEnd ? h.Bottom - cut : h.Y;
+            return new Area(h.X, y, h.Width, cut);
+        }
+
+        // o corredor depois do corte
+        private static Area Shorten(Area h, int cut, bool fromEnd, bool horizontal)
+        {
+            if (horizontal)
+            {
+                return fromEnd
+                    ? new Area(h.X, h.Y, h.Width - cut, h.Height)
+                    : new Area(h.X + cut, h.Y, h.Width - cut, h.Height);
+            }
+
+            return fromEnd
+                ? new Area(h.X, h.Y, h.Width, h.Height - cut)
+                : new Area(h.X, h.Y + cut, h.Width, h.Height - cut);
+        }
+
+        // acha um comodo que encosta na faixa doada ao longo de todo
+        // o lado dela. assim o pedaco se cola sem deixar buraco.
+        private static int FindReceiver(List<Room> rooms, int hall, Area strip,
+                                        bool horizontal)
+        {
             for (int i = 0; i < rooms.Count; i++)
             {
                 if (i == hall || rooms[i].Type == RoomType.Hall)
                     continue;
 
-                Area a = rooms[i].Area;
-
-                if (horizontal)
+                foreach (Area a in rooms[i].Parts)
                 {
-                    bool adjacent = a.Bottom == h.Y || a.Y == h.Bottom;
-                    bool atEnd = a.X == h.X || a.Right == h.Right;
+                    if (horizontal)
+                    {
+                        // precisa estar acima ou abaixo, cobrindo a largura toda
+                        bool stacked = a.Bottom == strip.Y || a.Y == strip.Bottom;
+                        bool covers = a.X <= strip.X && a.Right >= strip.Right;
 
-                    if (adjacent && atEnd && h.Width - a.Width >= minLength)
-                        return i;
-                }
-                else
-                {
-                    bool adjacent = a.Right == h.X || a.X == h.Right;
-                    bool atEnd = a.Y == h.Y || a.Bottom == h.Bottom;
+                        if (stacked && covers)
+                            return i;
+                    }
+                    else
+                    {
+                        bool sideways = a.Right == strip.X || a.X == strip.Right;
+                        bool covers = a.Y <= strip.Y && a.Bottom >= strip.Bottom;
 
-                    if (adjacent && atEnd && h.Height - a.Height >= minLength)
-                        return i;
+                        if (sideways && covers)
+                            return i;
+                    }
                 }
             }
 

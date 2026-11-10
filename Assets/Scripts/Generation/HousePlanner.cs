@@ -106,6 +106,9 @@ namespace PCG.Generation
             // tenta encurtar o corredor numa das pontas
             CorridorTrimmer.Trim(plan.Rooms, rng, minRoomSize);
 
+            // banheiro cede o fundo pro vizinho, pra nao ficar do tamanho de um quarto
+            // banheiro de no maximo 20 celulas (5 m2), lado minimo de 4 (2 m)
+            BathroomShrinker.Shrink(plan.Rooms, 20, 4, 2);            
             return plan;
         }
 

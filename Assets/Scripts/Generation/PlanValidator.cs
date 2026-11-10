@@ -6,7 +6,6 @@ namespace PCG.Generation
     // cada metodo e uma regra, testada separadamente.
     public static class PlanValidator
     {
-        // qual regra reprovou a ultima planta testada
         public enum Failure
         {
             None,
@@ -21,23 +20,26 @@ namespace PCG.Generation
             return type == RoomType.Living || type == RoomType.Hall;
         }
 
-        // regra 1: nenhum comodo invade o espaco de outro
+        // regra 1: nenhuma parte de um comodo invade a de outro
         public static bool NoOverlap(FloorPlan plan)
         {
             for (int i = 0; i < plan.Rooms.Count; i++)
             {
                 for (int j = i + 1; j < plan.Rooms.Count; j++)
                 {
-                    Area a = plan.Rooms[i].Area;
-                    Area b = plan.Rooms[j].Area;
+                    foreach (Area a in plan.Rooms[i].Parts)
+                    {
+                        foreach (Area b in plan.Rooms[j].Parts)
+                        {
+                            // dois retangulos se cruzam quando ha sobreposicao
+                            // nos dois eixos ao mesmo tempo
+                            bool crossX = Adjacency.Overlap(a.X, a.Right, b.X, b.Right) > 0;
+                            bool crossY = Adjacency.Overlap(a.Y, a.Bottom, b.Y, b.Bottom) > 0;
 
-                    // dois retangulos se cruzam quando ha sobreposicao
-                    // nos dois eixos ao mesmo tempo
-                    bool crossX = Adjacency.Overlap(a.X, a.Right, b.X, b.Right) > 0;
-                    bool crossY = Adjacency.Overlap(a.Y, a.Bottom, b.Y, b.Bottom) > 0;
-
-                    if (crossX && crossY)
-                        return false;
+                            if (crossX && crossY)
+                                return false;
+                        }
+                    }
                 }
             }
 
@@ -48,16 +50,25 @@ namespace PCG.Generation
         // o hall e excecao: corredor nao precisa de janela.
         public static bool EveryRoomTouchesFacade(FloorPlan plan)
         {
+            Area b = plan.Bounds;
+
             foreach (Room room in plan.Rooms)
             {
                 if (room.Type == RoomType.Hall)
                     continue;
 
-                Area a = room.Area;
-                Area b = plan.Bounds;
+                bool touches = false;
 
-                bool touches = a.X == b.X || a.Right == b.Right
-                            || a.Y == b.Y || a.Bottom == b.Bottom;
+                // basta uma das partes encostar na fachada
+                foreach (Area a in room.Parts)
+                {
+                    if (a.X == b.X || a.Right == b.Right
+                        || a.Y == b.Y || a.Bottom == b.Bottom)
+                    {
+                        touches = true;
+                        break;
+                    }
+                }
 
                 if (!touches)
                     return false;
@@ -88,8 +99,7 @@ namespace PCG.Generation
                 if (j == index || !IsCirculation(plan.Rooms[j].Type))
                     continue;
 
-                if (Adjacency.AreNeighbours(plan.Rooms[index].Area,
-                                            plan.Rooms[j].Area, minShared))
+                if (Adjacency.AreNeighbours(plan.Rooms[index], plan.Rooms[j], minShared))
                     return true;
             }
 
@@ -117,8 +127,7 @@ namespace PCG.Generation
                     if (i == j)
                         continue;
 
-                    if (Adjacency.AreNeighbours(plan.Rooms[i].Area,
-                                                plan.Rooms[j].Area, minShared))
+                    if (Adjacency.AreNeighbours(plan.Rooms[i], plan.Rooms[j], minShared))
                     {
                         linked = true;
                         break;

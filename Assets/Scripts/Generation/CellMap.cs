@@ -19,21 +19,29 @@ namespace PCG.Generation
                 for (int y = 0; y < bounds.Height; y++)
                     cells[x, y] = Outside;
 
-            // cada comodo pinta sua area com o proprio indice
+            // cada comodo pinta todas as suas partes com o proprio indice
             for (int i = 0; i < plan.Rooms.Count; i++)
-            {
-                Area a = plan.Rooms[i].Area;
+                foreach (Area part in plan.Rooms[i].Parts)
+                    Paint(part, i);
+        }
 
-                for (int x = a.X; x < a.Right; x++)
-                    for (int y = a.Y; y < a.Bottom; y++)
-                        cells[x, y] = i;
-            }
+        private void Paint(Area a, int id)
+        {
+            for (int x = a.X; x < a.Right; x++)
+                for (int y = a.Y; y < a.Bottom; y++)
+                    if (Inside(x, y))
+                        cells[x, y] = id;
+        }
+
+        private bool Inside(int x, int y)
+        {
+            return x >= 0 && y >= 0 && x < bounds.Width && y < bounds.Height;
         }
 
         // devolve o comodo da celula, ou Outside se estiver fora da casa
         public int At(int x, int y)
         {
-            if (x < 0 || y < 0 || x >= bounds.Width || y >= bounds.Height)
+            if (!Inside(x, y))
                 return Outside;
 
             return cells[x, y];

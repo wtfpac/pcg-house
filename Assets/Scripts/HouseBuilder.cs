@@ -5,7 +5,7 @@ using System.Collections.Generic;
 // le a planta gerada e constroi a casa na cena
 public class HouseBuilder : MonoBehaviour
 {
-    public string version = "0.1";
+    public string version = "0.4";
     public int seed = 42;
 
     [Header("Tamanho em celulas")]
@@ -73,8 +73,10 @@ public class HouseBuilder : MonoBehaviour
     void Build()
     {
         // apaga a casa anterior pra montar uma nova qnd aperta R
-        foreach (Transform child in transform)
-            Destroy(child.gameObject);
+        // comodo pode ter mais de uma parte (formato em L)
+        foreach (Room room in plan.Rooms)
+            foreach (Area part in room.Parts)
+                CreateFloor(part, room.Type);
 
         Area bounds = new Area(0, 0, houseWidth, houseHeight);
 
@@ -102,22 +104,22 @@ public class HouseBuilder : MonoBehaviour
         BuildWalls(plan);
     }
 
-    // cria uma laje fina no lugar do comodo. medidas em celulas.
-    void CreateFloor(Room room)
+    // cria uma laje fina no lugar de uma parte do comodo. medidas em celulas.
+    void CreateFloor(Area area, RoomType type)
     {
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = room.Type.ToString();
+        go.name = type.ToString();
         go.transform.parent = transform;
 
         // a Area guarda o canto, a unity posiciona pelo centro
-        float cx = room.Area.X + room.Area.Width / 2f;
-        float cz = room.Area.Y + room.Area.Height / 2f;
+        float cx = area.X + area.Width / 2f;
+        float cz = area.Y + area.Height / 2f;
 
         go.transform.position = new Vector3(cx * unitSize, 0f, cz * unitSize);
-        go.transform.localScale = new Vector3(room.Area.Width * unitSize, 0.1f,
-                                              room.Area.Height * unitSize);
+        go.transform.localScale = new Vector3(area.Width * unitSize, 0.1f,
+                                              area.Height * unitSize);
 
-        go.GetComponent<Renderer>().material.color = ColorFor(room.Type);
+        go.GetComponent<Renderer>().material.color = ColorFor(type);
     }
 
     // varre a grade e poe parede onde duas celulas vizinhas

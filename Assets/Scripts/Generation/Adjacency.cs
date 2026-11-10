@@ -1,34 +1,26 @@
+using System.Collections.Generic;
+
 namespace PCG.Generation
 {
-    // regra unica de vizinhanca entre dois retangulos.
-    // usada pelo grafo e pela nomeacao dos comodos.
+    // regra unica de vizinhanca. trabalha tanto com retangulos soltos
+    // quanto com comodos compostos por varios retangulos.
     public static class Adjacency
     {
         // dois retangulos sao vizinhos se as bordas se tocam e o
         // trecho em comum tem pelo menos minShared celulas
         public static bool AreNeighbours(Area a, Area b, int minShared)
         {
-            // lado a lado
-            if (a.Right == b.X || b.Right == a.X)
-                return Overlap(a.Y, a.Bottom, b.Y, b.Bottom) >= minShared;
-
-            // um acima do outro
-            if (a.Bottom == b.Y || b.Bottom == a.Y)
-                return Overlap(a.X, a.Right, b.X, b.Right) >= minShared;
-
-            return false;
+            return SharedLength(a, b) >= minShared;
         }
 
-        // quanto dois intervalos se cruzam. zero ou menos = nao se cruzam.
-        public static int Overlap(int startA, int endA, int startB, int endB)
+        // dois comodos sao vizinhos se alguma parte de um
+        // encosta em alguma parte do outro
+        public static bool AreNeighbours(Room a, Room b, int minShared)
         {
-            int start = startA > startB ? startA : startB;
-            int end = endA < endB ? endA : endB;
-
-            return end - start;
+            return SharedLength(a, b) >= minShared;
         }
 
-        // tamanho da borda compartilhada. zero se nao se tocam.
+        // tamanho da borda compartilhada entre dois retangulos
         public static int SharedLength(Area a, Area b)
         {
             if (a.Right == b.X || b.Right == a.X)
@@ -44,6 +36,34 @@ namespace PCG.Generation
             }
 
             return 0;
+        }
+
+        // maior borda compartilhada entre quaisquer partes dos dois comodos
+        public static int SharedLength(Room a, Room b)
+        {
+            int best = 0;
+
+            foreach (Area pa in a.Parts)
+            {
+                foreach (Area pb in b.Parts)
+                {
+                    int len = SharedLength(pa, pb);
+
+                    if (len > best)
+                        best = len;
+                }
+            }
+
+            return best;
+        }
+
+        // quanto dois intervalos se cruzam. zero ou menos = nao se cruzam.
+        public static int Overlap(int startA, int endA, int startB, int endB)
+        {
+            int start = startA > startB ? startA : startB;
+            int end = endA < endB ? endA : endB;
+
+            return end - start;
         }
     }
 }

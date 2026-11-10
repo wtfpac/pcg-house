@@ -77,17 +77,26 @@ namespace PCG.Generation
             RoomType ta = plan.Rooms[edge.A].Type;
             RoomType tb = plan.Rooms[edge.B].Type;
 
-            // ligacao com circulacao vale muito mais
             int score = 0;
 
-            if (IsCirculation(ta) || IsCirculation(tb))
+            // comodo privativo prefere abrir no corredor
+            bool privateRoom = IsPrivate(ta) || IsPrivate(tb);
+            bool hasHall = ta == RoomType.Hall || tb == RoomType.Hall;
+
+            if (privateRoom && hasHall)
+                score += 3000;
+            else if (IsCirculation(ta) || IsCirculation(tb))
                 score += 1000;
 
             // entre duas opcoes, prefere a borda mais larga
-            score += Adjacency.SharedLength(plan.Rooms[edge.A].Area,
-                                            plan.Rooms[edge.B].Area);
+            score += Adjacency.SharedLength(plan.Rooms[edge.A], plan.Rooms[edge.B]);
 
             return score;
+        }
+
+        private static bool IsPrivate(RoomType type)
+        {
+            return type == RoomType.Bedroom || type == RoomType.Bathroom;
         }
 
         // esse comodo ainda pode receber porta?
