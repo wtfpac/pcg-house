@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // encurta o corredor numa das pontas e estende o comodo vizinho
-    // pra ocupar o pedaco liberado. todo mundo continua retangular.
+    // encurta o corredor nas pontas e estende os comodos vizinhos
+    // pra ocupar o espaco liberado. todo mundo continua retangular.
     public static class CorridorTrimmer
     {
         public static void Trim(List<Room> rooms, System.Random rng, int minLength)
@@ -13,14 +13,23 @@ namespace PCG.Generation
             if (hall < 0)
                 return;
 
-            // metade das vezes deixa inteiro, pra variar
-            if (rng.Next(2) == 0)
-                return;
+            // tenta as duas pontas. de vez em quando deixa uma inteira,
+            // pra nem toda casa ficar igual.
+            for (int side = 0; side < 2; side++)
+            {
+                if (rng.Next(4) == 0)
+                    continue;
 
+                TrimOneEnd(rooms, hall, minLength);
+            }
+        }
+
+        // encurta uma ponta, se achar um comodo que encaixe
+        private static void TrimOneEnd(List<Room> rooms, int hall, int minLength)
+        {
             Area h = rooms[hall].Area;
             bool horizontal = h.Width >= h.Height;
 
-            // procura um comodo encostado numa das pontas do corredor
             int target = FindEndRoom(rooms, hall, horizontal, minLength);
 
             if (target < 0)

@@ -2,11 +2,10 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // decide onde abrir porta entre comodos vizinhos
+    // decide onde abrir porta, respeitando um limite por tipo de comodo.
+    // quarto e banheiro tem uma porta so; sala e corredor nao tem limite.
     public static class DoorPlacer
     {
-        // identifica uma celula de parede.
-        // vertical = parede que corre no eixo Z, numa coluna x fixa.
         public struct WallKey
         {
             public bool Vertical;
@@ -21,13 +20,40 @@ namespace PCG.Generation
             }
         }
 
-        // devolve as celulas de parede que viram vao de porta
+        // quantas portas cada tipo pode ter. -1 significa sem limite.
+        private static int DoorLimit(RoomType type)
+        {
+            switch (type)
+            {
+                case RoomType.Bedroom:  return 1;
+                case RoomType.Bathroom: return 1;
+                case RoomType.Kitchen:  return 2;
+                default:                return -1;   // sala e corredor
+            }
+        }
+
+        private static bool IsCirculation(RoomType type)
+        {
+            return type == RoomType.Living || type == RoomType.Hall;
+        }
+
         public static HashSet<WallKey> Place(FloorPlan plan, List<RoomGraph.Edge> edges)
         {
             HashSet<WallKey> doors = new HashSet<WallKey>();
+            int[] used = new int[plan.Rooms.Count];
 
-            foreach (RoomGraph.Edge edge in edges)
+            // ordena: primeiro as arestas que tocam circulacao, depois
+            // as de borda mais larga. assim o quarto gasta sua unica
+            // porta no corredor, nao no quarto vizinho.
+            List<RoomGraph.Edge> sorted = new List<RoomGraph.Edge>(edges);
+
+            sorted.Sort((x, y) => Priority(plan, y).CompareTo(Priority(plan, x)));
+
+            foreach (RoomGraph.Edge edge in sorted)
             {
+                if (!HasRoom(plan, used, edge.A) || !HasRoom(plan, used, edge.B))
+                    continue;
+
                 Area a = plan.Rooms[edge.A].Area;
                 Area b = plan.Rooms[edge.B].Area;
 
@@ -36,38 +62,58 @@ namespace PCG.Generation
                 if (shared.Count == 0)
                     continue;
 
-                // abre a celula do meio da fronteira
                 doors.Add(shared[shared.Count / 2]);
+
+                used[edge.A]++;
+                used[edge.B]++;
             }
 
             return doors;
         }
 
-        // lista as celulas de parede que ficam entre os dois comodos
+        // peso da aresta na ordenacao. maior = atendida antes.
+        private static int Priority(FloorPlan plan, RoomGraph.Edge edge)
+        {
+            RoomType ta = plan.Rooms[edge.A].Type;
+            RoomType tb = plan.Rooms[edge.B].Type;
+
+            // ligacao com circulacao vale muito mais
+            int score = 0;
+
+            if (IsCirculation(ta) || IsCirculation(tb))
+                score += 1000;
+
+            // entre duas opcoes, prefere a borda mais larga
+            score += Adjacency.SharedLength(plan.Rooms[edge.A].Area,
+                                            plan.Rooms[edge.B].Area);
+
+            return score;
+        }
+
+        // esse comodo ainda pode receber porta?
+        private static bool HasRoom(FloorPlan plan, int[] used, int index)
+        {
+            int limit = DoorLimit(plan.Rooms[index].Type);
+
+            return limit < 0 || used[index] < limit;
+        }
+
         private static List<WallKey> FindSharedWall(Area a, Area b)
         {
             List<WallKey> found = new List<WallKey>();
 
-            // b esta a direita de a
             if (a.Right == b.X)
                 AddVertical(found, a.Right, a.Y, a.Bottom, b.Y, b.Bottom);
-
-            // a esta a direita de b
             else if (b.Right == a.X)
                 AddVertical(found, b.Right, a.Y, a.Bottom, b.Y, b.Bottom);
-
-            // b esta abaixo de a
             else if (a.Bottom == b.Y)
                 AddHorizontal(found, a.Bottom, a.X, a.Right, b.X, b.Right);
-
-            // a esta abaixo de b
             else if (b.Bottom == a.Y)
                 AddHorizontal(found, b.Bottom, a.X, a.Right, b.X, b.Right);
 
             return found;
         }
 
-        // celulas da parede vertical, no trecho em que os dois se cruzam
         private static void AddVertical(List<WallKey> list, int x,
                                         int startA, int endA, int startB, int endB)
         {
@@ -78,7 +124,6 @@ namespace PCG.Generation
                 list.Add(new WallKey(true, x, y));
         }
 
-        // celulas da parede horizontal, no trecho em comum
         private static void AddHorizontal(List<WallKey> list, int y,
                                           int startA, int endA, int startB, int endB)
         {
@@ -86,7 +131,7 @@ namespace PCG.Generation
             int end = endA < endB ? endA : endB;
 
             for (int x = start; x < end; x++)
-                list.Add(new WallKey(false, y: y, x: x));
+                list.Add(new WallKey(false, x, y));
         }
     }
 }

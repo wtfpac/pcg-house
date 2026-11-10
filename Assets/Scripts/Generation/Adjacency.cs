@@ -27,5 +27,23 @@ namespace PCG.Generation
 
             return end - start;
         }
+
+        // tamanho da borda compartilhada. zero se nao se tocam.
+        public static int SharedLength(Area a, Area b)
+        {
+            if (a.Right == b.X || b.Right == a.X)
+            {
+                int v = Overlap(a.Y, a.Bottom, b.Y, b.Bottom);
+                return v > 0 ? v : 0;
+            }
+
+            if (a.Bottom == b.Y || b.Bottom == a.Y)
+            {
+                int h = Overlap(a.X, a.Right, b.X, b.Right);
+                return h > 0 ? h : 0;
+            }
+
+            return 0;
+        }
     }
 }

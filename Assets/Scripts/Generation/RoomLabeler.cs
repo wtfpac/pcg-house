@@ -29,11 +29,12 @@ namespace PCG.Generation
             // cozinha: a maior das que sobraram, de preferencia vizinha da sala
             int kitchen = PickKitchen(areas, living, bathroom, minShared);
 
-            // segundo banheiro so em casa grande
+            // segundo banheiro so em casa grande, e nunca colado no primeiro
             int bathroom2 = -1;
 
             if (areas.Count >= 6)
-                bathroom2 = PickSmallest(areas, living, bathroom, kitchen);
+                bathroom2 = PickSmallestAwayFrom(areas, living, bathroom, kitchen,
+                                                 bathroom, minShared);
 
             List<Room> rooms = new List<Room>();
 
@@ -59,6 +60,28 @@ namespace PCG.Generation
             for (int i = 0; i < areas.Count; i++)
             {
                 if (i == skipA || i == skipB || i == skipC)
+                    continue;
+
+                if (best < 0 || areas[i].Size < areas[best].Size)
+                    best = i;
+            }
+
+            return best;
+        }
+
+        // igual ao PickSmallest, mas tambem descarta quem encosta
+        // no comodo informado em "away". usado pro segundo banheiro.
+        private static int PickSmallestAwayFrom(List<Area> areas, int skipA, int skipB,
+                                                int skipC, int away, int minShared)
+        {
+            int best = -1;
+
+            for (int i = 0; i < areas.Count; i++)
+            {
+                if (i == skipA || i == skipB || i == skipC)
+                    continue;
+
+                if (away >= 0 && Adjacency.AreNeighbours(areas[i], areas[away], minShared))
                     continue;
 
                 if (best < 0 || areas[i].Size < areas[best].Size)
