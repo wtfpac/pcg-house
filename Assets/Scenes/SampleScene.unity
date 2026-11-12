@@ -206,7 +206,7 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 6, y: 18, z: 4}
+  m_LocalPosition: {x: 5, y: 16, z: 4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -412,11 +412,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 296cf17aee390334ba4a4551ff7c9d77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HouseBuilder
+  version: 0.1
   seed: 42
-  houseWidth: 12
-  houseHeight: 9
-  minRoomSize: 3
-  targetRooms: 5
+  houseWidth: 20
+  houseHeight: 16
+  minRoomSize: 5
+  unitSize: 0.5
+  wallHeight: 2.7
+  wallThickness: 0.1
 --- !u!4 &575343906
 Transform:
   m_ObjectHideFlags: 0

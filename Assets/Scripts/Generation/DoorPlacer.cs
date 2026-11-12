@@ -37,14 +37,18 @@ namespace PCG.Generation
             return type == RoomType.Living || type == RoomType.Hall;
         }
 
+        private static bool IsPrivate(RoomType type)
+        {
+            return type == RoomType.Bedroom || type == RoomType.Bathroom;
+        }
+
         public static HashSet<WallKey> Place(FloorPlan plan, List<RoomGraph.Edge> edges)
         {
             HashSet<WallKey> doors = new HashSet<WallKey>();
             int[] used = new int[plan.Rooms.Count];
 
-            // ordena: primeiro as arestas que tocam circulacao, depois
-            // as de borda mais larga. assim o quarto gasta sua unica
-            // porta no corredor, nao no quarto vizinho.
+            // ordena: comodo privativo prefere abrir no corredor,
+            // depois vem qualquer ligacao com circulacao
             List<RoomGraph.Edge> sorted = new List<RoomGraph.Edge>(edges);
 
             sorted.Sort((x, y) => Priority(plan, y).CompareTo(Priority(plan, x)));
@@ -54,10 +58,8 @@ namespace PCG.Generation
                 if (!HasRoom(plan, used, edge.A) || !HasRoom(plan, used, edge.B))
                     continue;
 
-                Area a = plan.Rooms[edge.A].Area;
-                Area b = plan.Rooms[edge.B].Area;
-
-                List<WallKey> shared = FindSharedWall(a, b);
+                List<WallKey> shared = FindSharedWall(plan.Rooms[edge.A],
+                                                      plan.Rooms[edge.B]);
 
                 if (shared.Count == 0)
                     continue;
@@ -71,7 +73,6 @@ namespace PCG.Generation
             return doors;
         }
 
-        // peso da aresta na ordenacao. maior = atendida antes.
         private static int Priority(FloorPlan plan, RoomGraph.Edge edge)
         {
             RoomType ta = plan.Rooms[edge.A].Type;
@@ -79,7 +80,6 @@ namespace PCG.Generation
 
             int score = 0;
 
-            // comodo privativo prefere abrir no corredor
             bool privateRoom = IsPrivate(ta) || IsPrivate(tb);
             bool hasHall = ta == RoomType.Hall || tb == RoomType.Hall;
 
@@ -88,23 +88,37 @@ namespace PCG.Generation
             else if (IsCirculation(ta) || IsCirculation(tb))
                 score += 1000;
 
-            // entre duas opcoes, prefere a borda mais larga
             score += Adjacency.SharedLength(plan.Rooms[edge.A], plan.Rooms[edge.B]);
 
             return score;
         }
 
-        private static bool IsPrivate(RoomType type)
-        {
-            return type == RoomType.Bedroom || type == RoomType.Bathroom;
-        }
-
-        // esse comodo ainda pode receber porta?
         private static bool HasRoom(FloorPlan plan, int[] used, int index)
         {
             int limit = DoorLimit(plan.Rooms[index].Type);
 
             return limit < 0 || used[index] < limit;
+        }
+
+        // junta as celulas de parede entre os dois comodos, testando
+        // todas as partes de um contra todas as partes do outro.
+        // devolve o maior trecho continuo encontrado.
+        private static List<WallKey> FindSharedWall(Room a, Room b)
+        {
+            List<WallKey> best = new List<WallKey>();
+
+            foreach (Area pa in a.Parts)
+            {
+                foreach (Area pb in b.Parts)
+                {
+                    List<WallKey> found = FindSharedWall(pa, pb);
+
+                    if (found.Count > best.Count)
+                        best = found;
+                }
+            }
+
+            return best;
         }
 
         private static List<WallKey> FindSharedWall(Area a, Area b)
