@@ -1,166 +1,144 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace PCG.Generation
 {
-    // monta uma planta completa: reserva o corredor, corta o resto,
-    // nomeia e valida. tenta de novo se a planta nao passar nas regras.
+    // o gerador em si monta uma planta em etapas: corredor, BSP, tipos,
+    // ajustes, e testa contra as regras. se a planta for reprovada, tenta
+    // outra. chamamos de generate-and-test.
     public static class HousePlanner
     {
-        public const int MaxAttempts = 60;
+        // versao do algoritmo. subir sempre que a geracao mudar de comportamento,
+        // pra saber qual codigo produziu cada print e cada tabela de resultados
+        public const string Version = "0.5";
 
-        public static int LastAttempts { get; private set; }
+        // 1 em cada 3 vezes o corredor vai no sentido mais curto da casa
+        private const int FlipOdds = 3;
 
-        // quantas vezes cada regra reprovou, nesta geracao
-        public static Dictionary<PlanValidator.Failure, int> LastFailures
-        { get; private set; }
-
-        // quantas vezes a faixa do corredor nem coube na casa
-        public static int LastGeometryFails { get; private set; }
-
-        public static FloorPlan Build(Area bounds, int seed, int minRoomSize,
-                                      int minRooms, int maxRooms, int minShared,
-                                      int corridorWidth)
+        public static GenerationResult Generate(HouseSettings s, int seed)
         {
-            // zera o estado da geracao anterior, senao o resumo mostra
-            // falhas que nao sao desta casa
-            LastFailures = new Dictionary<PlanValidator.Failure, int>();
-            LastGeometryFails = 0;
+            GenerationResult result = new GenerationResult(seed);
+            Stopwatch watch = Stopwatch.StartNew();
 
-            for (int attempt = 0; attempt < MaxAttempts; attempt++)
+            for (int attempt = 0; attempt < s.MaxAttempts; attempt++)
             {
-                // semente derivada, pra mesma entrada dar sempre o mesmo resultado
+                result.Attempts = attempt + 1;
+
+                // cada tentativa usa uma semente derivada da original. assim a
+                // mesma semente de entrada sempre chega na mesma casa
                 int trySeed = seed + attempt * 7919;
-                System.Random rng = new System.Random(trySeed);
 
-                FloorPlan plan = TryBuild(bounds, seed, trySeed, rng, minRoomSize,
-                                          minRooms, maxRooms, corridorWidth);
+                FloorPlan plan = BuildCandidate(s, seed, trySeed);
 
-                if (plan == null)
+                Failure failure = plan == null
+                    ? Failure.Geometry
+                    : PlanValidator.Check(plan, s);
+
+                if (failure == Failure.None)
                 {
-                    LastGeometryFails++;
-                    continue;   // a faixa nao coube nesta tentativa
+                    PlaceDoors(plan, s);
+                    result.Plan = plan;
+                    break;
                 }
 
-                PlanValidator.Failure result = PlanValidator.Check(plan, minShared);
-
-                if (result == PlanValidator.Failure.None)
-                {
-                    LastAttempts = attempt + 1;
-                    return plan;
-                }
-
-                if (!LastFailures.ContainsKey(result))
-                    LastFailures[result] = 0;
-
-                LastFailures[result]++;
+                result.Count(failure);
             }
 
-            LastAttempts = MaxAttempts;
-            return null;
+            watch.Stop();
+            result.Milliseconds = watch.Elapsed.TotalMilliseconds;
+
+            return result;
         }
 
-        // resumo em texto das falhas desta geracao, pro overlay e o log
-        public static string FailureSummary()
+        // monta uma planta candidata. devolve null se o corredor nao couber
+        private static FloorPlan BuildCandidate(HouseSettings s, int seed, int trySeed)
         {
-            List<string> parts = new List<string>();
+            // um unico gerador aleatorio por tentativa, usado por todas as etapas
+            System.Random rng = new System.Random(trySeed);
+            Area bounds = new Area(0, 0, s.Width, s.Height);
 
-            if (LastGeometryFails > 0)
-                parts.Add("Geometry:" + LastGeometryFails);
+            // 1. reserva a faixa do corredor, que divide a casa em duas regioes
+            if (!PlaceCorridor(bounds, s, rng, out Area corridor,
+                               out Area regionA, out Area regionB))
+                return null;
 
-            if (LastFailures != null)
-                foreach (var pair in LastFailures)
-                    parts.Add(pair.Key + ":" + pair.Value);
-
-            if (parts.Count == 0)
-                return "nenhuma";
-
-            return string.Join("  ", parts);
-        }
-
-        private static FloorPlan TryBuild(Area bounds, int seed, int trySeed,
-                                          System.Random rng, int minRoomSize,
-                                          int minRooms, int maxRooms, int corridorWidth)
-        {
-            // orienta a faixa pelo lado mais comprido, mas as vezes inverte.
-            // so inverte se o outro sentido tambem comportar comodos dos dois lados.
-            bool horizontal = bounds.Width >= bounds.Height;
-
-            int otherSpan = horizontal ? bounds.Width : bounds.Height;
-
-            if (otherSpan >= corridorWidth + minRoomSize * 2 && rng.Next(3) == 0)
-                horizontal = !horizontal;
-
-            int span = horizontal ? bounds.Height : bounds.Width;
-
-            // precisa sobrar comodo dos dois lados da faixa
-            int minPos = minRoomSize;
-            int maxPos = span - corridorWidth - minRoomSize;
-
-            if (maxPos < minPos)
-                return null;   // casa estreita demais pra ter corredor
-
-            int pos = rng.Next(minPos, maxPos + 1);
-
-            Area corridor;
-            Area regionA;
-            Area regionB;
-
-            if (horizontal)
-            {
-                corridor = new Area(bounds.X, bounds.Y + pos, bounds.Width, corridorWidth);
-                regionA = new Area(bounds.X, bounds.Y, bounds.Width, pos);
-                regionB = new Area(bounds.X, corridor.Bottom,
-                                   bounds.Width, bounds.Bottom - corridor.Bottom);
-            }
-            else
-            {
-                corridor = new Area(bounds.X + pos, bounds.Y, corridorWidth, bounds.Height);
-                regionA = new Area(bounds.X, bounds.Y, pos, bounds.Height);
-                regionB = new Area(corridor.Right, bounds.Y,
-                                   bounds.Right - corridor.Right, bounds.Height);
-            }
-
-            // corta as duas regioes, proporcional ao tamanho de cada uma
-            int totalRooms = rng.Next(minRooms, maxRooms + 1);
-            int roomsA = AreaShare(regionA, regionB, totalRooms);
+            // 2. corta as duas regioes com BSP. cada uma recebe uma
+            //    quantidade de comodos proporcional a sua area.
+            int totalRooms = rng.Next(s.MinRooms, s.MaxRooms + 1);
+            int roomsA = ShareOf(regionA, regionB, totalRooms);
             int roomsB = totalRooms - roomsA;
 
-            HouseGenerator genA = new HouseGenerator(minRoomSize, roomsA, trySeed);
-            HouseGenerator genB = new HouseGenerator(minRoomSize, roomsB, trySeed + 1);
-
             List<Area> areas = new List<Area>();
-            areas.AddRange(genA.SplitSpace(regionA));
-            areas.AddRange(genB.SplitSpace(regionB));
+            areas.AddRange(BspSplitter.Split(regionA, roomsA, s.MinRoomSize, rng));
+            areas.AddRange(BspSplitter.Split(regionB, roomsB, s.MinRoomSize, rng));
 
-            List<Room> rooms = RoomLabeler.Label(areas, 2);
-
+            // 3. decide o tipo de cada comodo. o corredor ja entra marcado.
             FloorPlan plan = new FloorPlan(bounds, seed);
             plan.Rooms.Add(new Room(corridor, RoomType.Hall));
-            plan.Rooms.AddRange(rooms);
+            plan.Rooms.AddRange(RoomLabeler.Label(areas, s));
 
-            // tenta encurtar o corredor nas pontas
-            CorridorTrimmer.Trim(plan.Rooms, rng, minRoomSize);
-
-            // banheiro de no maximo 20 celulas (5 m2), lado minimo de 4 (2 m)
-            BathroomShrinker.Shrink(plan.Rooms, 20, 4, 2);
+            // 4. ajustes de proporcao: corredor mais curto, banheiro menor
+            CorridorTrimmer.Trim(plan, s, rng);
+            BathroomShrinker.Shrink(plan, s);
 
             return plan;
         }
 
-        // divide os comodos entre as duas regioes conforme a area de cada uma
-        private static int AreaShare(Area a, Area b, int total)
+        // sorteia a posicao da faixa do corredor e separa a casa em
+        // regiao A | corredor | regiao B. devolve false se nao houver espaco.
+        private static bool PlaceCorridor(Area bounds, HouseSettings s, System.Random rng,
+                                          out Area corridor, out Area regionA, out Area regionB)
         {
-            int sum = a.Size + b.Size;
+            corridor = regionA = regionB = bounds;
 
-            if (sum <= 0)
-                return 1;
+            // alongX = o corredor corre no eixo X. o normal e ele seguir o lado
+            // mais comprido da casa. as vezes vai no outro sentido, desde que o
+            // lado comprido comporte o corredor mais um comodo de cada lado.
+            bool alongX = bounds.Width >= bounds.Height;
+            int longSide = alongX ? bounds.Width : bounds.Height;
 
-            int share = (int)System.Math.Round((double)total * a.Size / sum);
+            if (longSide >= s.CorridorWidth + s.MinRoomSize * 2 && rng.Next(FlipOdds) == 0)
+                alongX = !alongX;
+
+            // "depth" e o lado que a faixa divide. precisa sobrar
+            // um comodo minimo de cada lado dela.
+            int depth = alongX ? bounds.Height : bounds.Width;
+            int minPos = s.MinRoomSize;
+            int maxPos = depth - s.CorridorWidth - s.MinRoomSize;
+
+            if (maxPos < minPos)
+                return false;
+
+            int pos = rng.Next(minPos, maxPos + 1);
+
+            // corredor no eixo X significa cortes no eixo Y, e vice-versa
+            bounds.Split(!alongX, pos, out regionA, out Area rest);
+            rest.Split(!alongX, s.CorridorWidth, out corridor, out regionB);
+
+            return true;
+        }
+
+        // quantos comodos ficam na regiao A, proporcional a area dela.
+        // cada regiao recebe pelo menos um
+        private static int ShareOf(Area a, Area b, int total)
+        {
+            int share = (int)System.Math.Round((double)total * a.Size / (a.Size + b.Size));
 
             if (share < 1) share = 1;
             if (share > total - 1) share = total - 1;
 
             return share;
+        }
+
+        // com a planta aprovada: monta o grafo e abre as portas
+        private static void PlaceDoors(FloorPlan plan, HouseSettings s)
+        {
+            plan.Edges = RoomGraph.Build(plan.Rooms, s.MinSharedWall);
+            plan.Doors = DoorPlacer.Place(plan);
+            plan.Entrance = EntrancePlacer.Place(plan);
+
+            if (plan.Entrance.HasValue)
+                plan.Doors.Add(plan.Entrance.Value);
         }
     }
 }

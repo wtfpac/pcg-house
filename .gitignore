@@ -108,5 +108,9 @@ InitTestScene*.unity*
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
 
-*.png
-print_*
+# prints tirados com a tecla P, que caem na raiz do projeto
+/print_*.png
+
+# saida de compilacao do visualizador de console
+/tools/**/bin/
+/tools/**/obj/

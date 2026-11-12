@@ -1,133 +1,85 @@
-using System.Collections.Generic;
-
 namespace PCG.Generation
 {
-    // encurta o corredor nas pontas e doa o espaco liberado ao comodo
-    // vizinho. o comodo pode ficar em L, por isso guardamos em Parts.
+    // o corredor nasce atravessando a casa de ponta a ponta. aqui ele e
+    // encurtado: o pedaco cortado da ponta e doado a um comodo vizinho, permitindo ele ficar em L
     public static class CorridorTrimmer
     {
-        public static void Trim(List<Room> rooms, System.Random rng, int minLength)
-        {
-            int hall = FindHall(rooms);
+        // 1 em cada 4 vezes a ponta fica inteira, evita repetiçao e casas parecidas
+        private const int KeepEndOdds = 4;
 
-            if (hall < 0)
+        public static void Trim(FloorPlan plan, HouseSettings s, System.Random rng)
+        {
+            Room hall = plan.Find(RoomType.Hall);
+
+            if (hall == null)
                 return;
 
-            // tenta as duas pontas. de vez em quando deixa uma inteira,
-            // pra nem toda casa ficar igual.
-            for (int side = 0; side < 2; side++)
+            // duas tentativas de corte, uma pra cada ponta
+            for (int i = 0; i < 2; i++)
             {
-                if (rng.Next(4) == 0)
+                if (rng.Next(KeepEndOdds) == 0)
                     continue;
 
-                TrimOneEnd(rooms, hall, rng, minLength);
+                TrimOneEnd(plan, hall, s, rng);
             }
         }
 
-        private static int FindHall(List<Room> rooms)
+        private static void TrimOneEnd(FloorPlan plan, Room hall, HouseSettings s,
+                                       System.Random rng)
         {
-            for (int i = 0; i < rooms.Count; i++)
-                if (rooms[i].Type == RoomType.Hall)
-                    return i;
+            Area corridor = hall.Parts[0];   // o corredor e sempre um retangulo so
+            bool alongX = corridor.Width >= corridor.Height;
+            int length = alongX ? corridor.Width : corridor.Height;
 
-            return -1;
-        }
+            // o corredor nunca fica mais curto que um comodo minimo, e o
+            // pedaco cortado precisa ter um tamanho que sirva pra alguma coisa
+            int maxCut = length - s.MinRoomSize;
 
-        private static void TrimOneEnd(List<Room> rooms, int hall,
-                                       System.Random rng, int minLength)
-        {
-            Area h = rooms[hall].Area;
-            bool horizontal = h.Width >= h.Height;
-            int length = horizontal ? h.Width : h.Height;
-
-            if (length <= minLength)
+            if (maxCut < s.MinCorridorCut)
                 return;
 
-            // quanto da ponta cortar
-            // corte minimo de 3 celulas, senao a sobra e inutil
-            int minCut = 3;
+            int cut = rng.Next(s.MinCorridorCut, maxCut + 1);
+            bool fromEnd = rng.Next(2) == 0;
 
-            if (length - minLength < minCut)
-                return;   // nao da pra cortar um pedaco util
+            Area strip;
+            Area rest;
 
-            int cut = rng.Next(minCut, length - minLength + 1);            bool fromEnd = rng.Next(2) == 0;
+            if (fromEnd)
+                corridor.Split(alongX, length - cut, out rest, out strip);
+            else
+                corridor.Split(alongX, cut, out strip, out rest);
 
-            Area strip = CutStrip(h, cut, fromEnd, horizontal);
+            Room receiver = FindReceiver(plan, strip, alongX);
 
-            // quem recebe o pedaco: um comodo encostado nele
-            int target = FindReceiver(rooms, hall, strip, horizontal);
+            if (receiver == null)
+                return;   // ninguem pode receber o pedaco, o corredor fica como esta
 
-            if (target < 0)
-                return;
-
-            // encurta o corredor
-            rooms[hall].Area = Shorten(h, cut, fromEnd, horizontal);
-
-            // o pedaco vira uma parte nova do comodo vizinho
-            rooms[target].Parts.Add(strip);
+            hall.Parts[0] = rest;
+            receiver.Absorb(strip);
         }
 
-        // o retangulo que vai ser doado
-        private static Area CutStrip(Area h, int cut, bool fromEnd, bool horizontal)
+        // quem recebe o pedaco: um comodo que encosta nele ao longo de todo
+        // o comprimento, de um dos lados do corredor. assim nao sobra buraco
+        private static Room FindReceiver(FloorPlan plan, Area strip, bool alongX)
         {
-            if (horizontal)
+            foreach (Room room in plan.Rooms)
             {
-                int x = fromEnd ? h.Right - cut : h.X;
-                return new Area(x, h.Y, cut, h.Height);
-            }
-
-            int y = fromEnd ? h.Bottom - cut : h.Y;
-            return new Area(h.X, y, h.Width, cut);
-        }
-
-        // o corredor depois do corte
-        private static Area Shorten(Area h, int cut, bool fromEnd, bool horizontal)
-        {
-            if (horizontal)
-            {
-                return fromEnd
-                    ? new Area(h.X, h.Y, h.Width - cut, h.Height)
-                    : new Area(h.X + cut, h.Y, h.Width - cut, h.Height);
-            }
-
-            return fromEnd
-                ? new Area(h.X, h.Y, h.Width, h.Height - cut)
-                : new Area(h.X, h.Y + cut, h.Width, h.Height - cut);
-        }
-
-        // acha um comodo que encosta na faixa doada ao longo de todo
-        // o lado dela. assim o pedaco se cola sem deixar buraco.
-        private static int FindReceiver(List<Room> rooms, int hall, Area strip,
-                                        bool horizontal)
-        {
-            for (int i = 0; i < rooms.Count; i++)
-            {
-                if (i == hall || rooms[i].Type == RoomType.Hall)
+                // banheiro nao recebe: ele precisa ficar pequeno
+                if (room.Type == RoomType.Hall || room.Type == RoomType.Bathroom)
                     continue;
 
-                foreach (Area a in rooms[i].Parts)
+                foreach (Area part in room.Parts)
                 {
-                    if (horizontal)
-                    {
-                        // precisa estar acima ou abaixo, cobrindo a largura toda
-                        bool stacked = a.Bottom == strip.Y || a.Y == strip.Bottom;
-                        bool covers = a.X <= strip.X && a.Right >= strip.Right;
+                    WallSpan wall = Adjacency.Wall(part, strip);
 
-                        if (stacked && covers)
-                            return i;
-                    }
-                    else
-                    {
-                        bool sideways = a.Right == strip.X || a.X == strip.Right;
-                        bool covers = a.Y <= strip.Y && a.Bottom >= strip.Bottom;
-
-                        if (sideways && covers)
-                            return i;
-                    }
+                    // corredor deitado (alongX) tem os vizinhos em cima e embaixo,
+                    // entao a parede em comum precisa ser horizontal. e vice-versa
+                    if (wall.Vertical != alongX && wall.CoversSideOf(strip))
+                        return room;
                 }
             }
 
-            return -1;
+            return null;
         }
     }
 }

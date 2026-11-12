@@ -1,194 +1,140 @@
-using System.Collections.Generic;
+using System;
 
 namespace PCG.Generation
 {
-    // banheiro nao precisa ser do tamanho de um quarto. doa fileiras
-    // dele pros vizinhos ate caber na area alvo.
+    // o BSP corta comodos de tamanho parecido, entao o banheiro nasce do
+    // tamanho de um quarto. aqui ele e reduzido: uma fatia inteira e cortada
+    // de um dos lados e doada ao vizinho. o banheiro continua retangular;
+    // quem recebe a fatia pode ficar em L
     public static class BathroomShrinker
     {
-        public static void Shrink(List<Room> rooms, int maxArea, int minSide, int minShared)
+        public static void Shrink(FloorPlan plan, HouseSettings s)
         {
-            for (int i = 0; i < rooms.Count; i++)
+            foreach (Room room in plan.Rooms)
             {
-                if (rooms[i].Type != RoomType.Bathroom)
+                if (room.Type != RoomType.Bathroom)
                     continue;
 
-                if (rooms[i].Parts.Count != 1)
-                    continue;
-
-                // doa uma fileira por vez ate caber, ou ate travar
-                for (int pass = 0; pass < 12; pass++)
+                // corta um lado por vez, ate caber na area alvo
+                // ou ate nenhum lado aceitar mais corte
+                while (room.Size > s.MaxBathroomArea && CutOneSide(plan, room, s))
                 {
-                    if (rooms[i].Area.Size <= maxArea)
-                        break;
-
-                    if (!DonateOneRow(rooms, i, minSide, minShared))
-                        break;
                 }
             }
         }
 
-        // tenta doar uma fileira de 1 celula de espessura.
-        // devolve false se nenhum lado aceitou.
-        private static bool DonateOneRow(List<Room> rooms, int index, int minSide, int minShared)
+        // tenta os quatro lados e aplica o primeiro corte que der certo
+        // lados: 0 esquerda, 1 direita, 2 cima, 3 baixo
+        private static bool CutOneSide(FloorPlan plan, Room bathroom, HouseSettings s)
         {
-            int keepSide = FindCirculationSide(rooms, index, minShared);
+            Area before = bathroom.Parts[0];
 
             for (int side = 0; side < 4; side++)
             {
-                if (side == keepSide)
-                    continue;
+                // comeca pelo corte ideal e vai diminuindo ate achar um que sirva
+                for (int thickness = IdealCut(before, side, s); thickness > 0; thickness--)
+                {
+                    Slice(before, side, thickness, out Area slab, out Area rest);
 
-                if (TryDonateSide(rooms, index, side, minSide))
-                    return true;
+                    Room receiver = FindReceiver(plan, bathroom, slab);
+
+                    if (receiver == null)
+                        continue;
+
+                    // o banheiro menor ainda precisa obedecer as regras da casa
+                    // testa com o retangulo novo e desfaz se nao servir
+                    bathroom.Parts[0] = rest;
+
+                    if (StillValid(plan, bathroom, s))
+                    {
+                        receiver.Absorb(slab);
+                        return true;
+                    }
+
+                    bathroom.Parts[0] = before;
+                }
             }
 
             return false;
         }
 
-        private static bool TryDonateSide(List<Room> rooms, int index, int side, int minSide)
+        // quanto tirar desse lado pra area fechar no alvo,
+        // sem deixar o banheiro mais estreito que o lado minimo
+        private static int IdealCut(Area area, int side, HouseSettings s)
         {
-            Area a = rooms[index].Area;
+            bool alongX = side < 2;
+            int length = alongX ? area.Width : area.Height;
+            int other = alongX ? area.Height : area.Width;
 
-            bool vertical = side == 0 || side == 2;
+            int target = Math.Max(s.MinBathroomSide, s.MaxBathroomArea / other);
 
-            // nao encolhe abaixo do lado minimo
-            if (vertical && a.Height - 1 < minSide) return false;
-            if (!vertical && a.Width - 1 < minSide) return false;
+            return length - target;
+        }
 
-            // a fileira que esta na borda escolhida
-            Area row;
+        // separa uma fatia do lado pedido. "rest" e o que sobra pro banheiro
+        private static void Slice(Area area, int side, int thickness,
+                                  out Area slab, out Area rest)
+        {
+            switch (side)
+            {
+                case 0:  area.Split(true, thickness, out slab, out rest); break;
+                case 1:  area.Split(true, area.Width - thickness, out rest, out slab); break;
+                case 2:  area.Split(false, thickness, out slab, out rest); break;
+                default: area.Split(false, area.Height - thickness, out rest, out slab); break;
+            }
+        }
 
-            if (side == 0)      row = new Area(a.X, a.Y, a.Width, 1);
-            else if (side == 2) row = new Area(a.X, a.Bottom - 1, a.Width, 1);
-            else if (side == 1) row = new Area(a.X, a.Y, 1, a.Height);
-            else                row = new Area(a.Right - 1, a.Y, 1, a.Height);
+        // quem recebe a fatia é um comodo que encosta num lado inteiro dela, dai se encaixa sem deixar buraco
+        private static Room FindReceiver(FloorPlan plan, Room bathroom, Area slab)
+        {
+            bool thin = Math.Min(slab.Width, slab.Height) < 2;
 
-            // quem encosta nessa fileira, e em qual trecho
-            int target = FindPartialReceiver(rooms, index, row, vertical, out Area piece);
+            foreach (Room room in plan.Rooms)
+            {
+                // corredor e banheiro nao recebem espaco
+                if (room == bathroom || room.Type == RoomType.Hall
+                    || room.Type == RoomType.Bathroom)
+                    continue;
 
-            if (target < 0)
+                // fatia de 1 celula so serve se completar um retangulo com
+                // o vizinho. solta, viraria um degrau inutil na parede dele
+                if (thin)
+                {
+                    if (room.FormsRectangleWith(slab))
+                        return room;
+
+                    continue;
+                }
+
+                foreach (Area part in room.Parts)
+                    if (FitsAgainst(slab, part))
+                        return room;
+            }
+
+            return null;
+        }
+
+        // a fatia encaixa nessa parte do vizinho?
+        private static bool FitsAgainst(Area slab, Area part)
+        {
+            WallSpan wall = Adjacency.Wall(part, slab);
+
+            if (!wall.CoversSideOf(slab))
                 return false;
 
-            // o banheiro perde so o pedaco doado
-            rooms[index].Parts.Clear();
-            rooms[index].Parts.AddRange(Subtract(a, piece));
+            // "depth" e o quanto a fatia se afasta da parede em comum. se for
+            // mais que o dobro da abertura, vira um braco comprido e estreito.
+            int depth = wall.Vertical ? slab.Width : slab.Height;
 
-            rooms[target].Parts.Add(piece);
-
-            return true;
+            return depth <= wall.Length * 2;
         }
 
-        // acha um vizinho que encosta em parte da fileira.
-        // devolve em "piece" so o trecho que esse vizinho cobre.
-        private static int FindPartialReceiver(List<Room> rooms, int skip, Area row,
-                                               bool vertical, out Area piece)
+        // as mesmas regras que o validador cobra de qualquer comodo:
+        // acesso pela circulacao e parede externa pra janela
+        private static bool StillValid(FloorPlan plan, Room bathroom, HouseSettings s)
         {
-            piece = row;
-
-            for (int i = 0; i < rooms.Count; i++)
-            {
-                if (i == skip)
-                    continue;
-
-                RoomType t = rooms[i].Type;
-
-                if (t == RoomType.Hall || t == RoomType.Bathroom)
-                    continue;
-
-                foreach (Area p in rooms[i].Parts)
-                {
-                    if (vertical)
-                    {
-                        bool stacked = p.Bottom == row.Y || p.Y == row.Bottom;
-
-                        if (!stacked)
-                            continue;
-
-                        int start = p.X > row.X ? p.X : row.X;
-                        int end = p.Right < row.Right ? p.Right : row.Right;
-
-                        if (end - start <= 0)
-                            continue;
-
-                        piece = new Area(start, row.Y, end - start, 1);
-                        return i;
-                    }
-                    else
-                    {
-                        bool sideways = p.Right == row.X || p.X == row.Right;
-
-                        if (!sideways)
-                            continue;
-
-                        int start = p.Y > row.Y ? p.Y : row.Y;
-                        int end = p.Bottom < row.Bottom ? p.Bottom : row.Bottom;
-
-                        if (end - start <= 0)
-                            continue;
-
-                        piece = new Area(row.X, start, 1, end - start);
-                        return i;
-                    }
-                }
-            }
-
-            return -1;
-        }
-
-        // o que sobra do retangulo a depois de tirar o pedaco.
-        // devolve ate tres retangulos, cobrindo o resto sem buraco.
-        private static List<Area> Subtract(Area a, Area cut)
-        {
-            List<Area> rest = new List<Area>();
-
-            // faixa acima do corte
-            if (cut.Y > a.Y)
-                rest.Add(new Area(a.X, a.Y, a.Width, cut.Y - a.Y));
-
-            // faixa abaixo do corte
-            if (cut.Bottom < a.Bottom)
-                rest.Add(new Area(a.X, cut.Bottom, a.Width, a.Bottom - cut.Bottom));
-
-            // esquerda e direita, na altura do corte
-            if (cut.X > a.X)
-                rest.Add(new Area(a.X, cut.Y, cut.X - a.X, cut.Height));
-
-            if (cut.Right < a.Right)
-                rest.Add(new Area(cut.Right, cut.Y, a.Right - cut.Right, cut.Height));
-
-            return rest;
-        }
-
-        // de que lado esta a circulacao, pra nao cortar ali.
-        // 0 = cima, 1 = esquerda, 2 = baixo, 3 = direita, -1 = nenhum
-        private static int FindCirculationSide(List<Room> rooms, int index, int minShared)
-        {
-            Area a = rooms[index].Area;
-
-            for (int i = 0; i < rooms.Count; i++)
-            {
-                if (i == index)
-                    continue;
-
-                RoomType t = rooms[i].Type;
-
-                if (t != RoomType.Hall && t != RoomType.Living)
-                    continue;
-
-                foreach (Area p in rooms[i].Parts)
-                {
-                    if (Adjacency.SharedLength(a, p) < minShared)
-                        continue;
-
-                    if (p.Bottom == a.Y) return 0;
-                    if (p.Right == a.X) return 1;
-                    if (p.Y == a.Bottom) return 2;
-                    if (p.X == a.Right) return 3;
-                }
-            }
-
-            return -1;
+            return PlanValidator.TouchesCirculation(plan, bathroom, s.MinSharedWall)
+                && PlanValidator.TouchesFacade(plan, bathroom);
         }
     }
 }

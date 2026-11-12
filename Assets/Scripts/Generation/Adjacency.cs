@@ -1,69 +1,71 @@
-using System.Collections.Generic;
+using System;
 
 namespace PCG.Generation
 {
-    // regra unica de vizinhanca. trabalha tanto com retangulos soltos
-    // quanto com comodos compostos por varios retangulos.
+    // regra unica de vizinhanca do projeto: dois comodos sao vizinhos quando
+    // compartilham um trecho de parede, todo o resto ;grafo, portas, validacao
+    // usa esta classe, entao a regra nunca diverge de um lugar pro outro.
     public static class Adjacency
     {
-        // dois retangulos sao vizinhos se as bordas se tocam e o
-        // trecho em comum tem pelo menos minShared celulas
-        public static bool AreNeighbours(Area a, Area b, int minShared)
+        // a parede que dois retangulos compartilham. Length zero = nao se encostam.
+        public static WallSpan Wall(Area a, Area b)
         {
-            return SharedLength(a, b) >= minShared;
-        }
-
-        // dois comodos sao vizinhos se alguma parte de um
-        // encosta em alguma parte do outro
-        public static bool AreNeighbours(Room a, Room b, int minShared)
-        {
-            return SharedLength(a, b) >= minShared;
-        }
-
-        // tamanho da borda compartilhada entre dois retangulos
-        public static int SharedLength(Area a, Area b)
-        {
+            // lado a lado: parede vertical, na coluna onde um termina e o outro comeca
             if (a.Right == b.X || b.Right == a.X)
             {
-                int v = Overlap(a.Y, a.Bottom, b.Y, b.Bottom);
-                return v > 0 ? v : 0;
+                int column = a.Right == b.X ? a.Right : b.Right;
+                return Span(true, column, a.Y, a.Bottom, b.Y, b.Bottom);
             }
 
+            // um em cima do outro: parede horizontal
             if (a.Bottom == b.Y || b.Bottom == a.Y)
             {
-                int h = Overlap(a.X, a.Right, b.X, b.Right);
-                return h > 0 ? h : 0;
+                int row = a.Bottom == b.Y ? a.Bottom : b.Bottom;
+                return Span(false, row, a.X, a.Right, b.X, b.Right);
             }
 
-            return 0;
+            return new WallSpan();
         }
 
-        // maior borda compartilhada entre quaisquer partes dos dois comodos
-        public static int SharedLength(Room a, Room b)
+        // a maior parede em comum entre dois comodos, olhando todas as partes de cada um
+        public static WallSpan Wall(Room a, Room b)
         {
-            int best = 0;
+            WallSpan best = new WallSpan();
 
-            foreach (Area pa in a.Parts)
+            foreach (Area partA in a.Parts)
             {
-                foreach (Area pb in b.Parts)
+                foreach (Area partB in b.Parts)
                 {
-                    int len = SharedLength(pa, pb);
+                    WallSpan wall = Wall(partA, partB);
 
-                    if (len > best)
-                        best = len;
+                    if (wall.Length > best.Length)
+                        best = wall;
                 }
             }
 
             return best;
         }
 
-        // quanto dois intervalos se cruzam. zero ou menos = nao se cruzam.
-        public static int Overlap(int startA, int endA, int startB, int endB)
+        // vizinhos = a parede em comum tem pelo menos minShared celulas,
+        // que e o espaco necessario pra caber uma porta
+        public static bool AreNeighbours(Area a, Area b, int minShared)
         {
-            int start = startA > startB ? startA : startB;
-            int end = endA < endB ? endA : endB;
+            return Wall(a, b).Length >= minShared;
+        }
 
-            return end - start;
+        public static bool AreNeighbours(Room a, Room b, int minShared)
+        {
+            return Wall(a, b).Length >= minShared;
+        }
+
+        // monta o trecho onde os intervalos [startA, endA) e [startB, endB) se cruzam
+        private static WallSpan Span(bool vertical, int line,
+                                     int startA, int endA, int startB, int endB)
+        {
+            int start = Math.Max(startA, startB);
+            int end = Math.Min(endA, endB);
+
+            return new WallSpan(vertical, line, start, Math.Max(0, end - start));
         }
     }
 }
