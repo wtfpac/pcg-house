@@ -117,7 +117,7 @@ public class HouseBuilder : MonoBehaviour
             lastEdges = 0;
             lastDoors = 0;
             lastAttempts = HousePlanner.MaxAttempts;
-            lastFailure = "sem planta valida";
+            lastFailure = HousePlanner.FailureSummary();
 
             Debug.LogWarning("semente " + seed + ": nenhuma planta valida em "
                              + HousePlanner.MaxAttempts + " tentativas");
@@ -139,7 +139,7 @@ public class HouseBuilder : MonoBehaviour
         lastEdges = edges.Count;
         lastDoors = doors.Count;
         lastAttempts = HousePlanner.LastAttempts;
-        lastFailure = HousePlanner.LastFailure.ToString();
+        lastFailure = HousePlanner.FailureSummary();
 
         Debug.Log($"semente {seed} | {lastRooms} comodos | {lastEdges} conexoes | "
                   + $"{lastDoors} portas | {lastAttempts} tentativas | "

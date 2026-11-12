@@ -9,12 +9,23 @@ namespace PCG.Generation
         public const int MaxAttempts = 60;
 
         public static int LastAttempts { get; private set; }
-        public static PlanValidator.Failure LastFailure { get; private set; }
+
+        // quantas vezes cada regra reprovou, nesta geracao
+        public static Dictionary<PlanValidator.Failure, int> LastFailures
+        { get; private set; }
+
+        // quantas vezes a faixa do corredor nem coube na casa
+        public static int LastGeometryFails { get; private set; }
 
         public static FloorPlan Build(Area bounds, int seed, int minRoomSize,
                                       int minRooms, int maxRooms, int minShared,
                                       int corridorWidth)
         {
+            // zera o estado da geracao anterior, senao o resumo mostra
+            // falhas que nao sao desta casa
+            LastFailures = new Dictionary<PlanValidator.Failure, int>();
+            LastGeometryFails = 0;
+
             for (int attempt = 0; attempt < MaxAttempts; attempt++)
             {
                 // semente derivada, pra mesma entrada dar sempre o mesmo resultado
@@ -25,7 +36,10 @@ namespace PCG.Generation
                                           minRooms, maxRooms, corridorWidth);
 
                 if (plan == null)
+                {
+                    LastGeometryFails++;
                     continue;   // a faixa nao coube nesta tentativa
+                }
 
                 PlanValidator.Failure result = PlanValidator.Check(plan, minShared);
 
@@ -35,11 +49,32 @@ namespace PCG.Generation
                     return plan;
                 }
 
-                LastFailure = result;
+                if (!LastFailures.ContainsKey(result))
+                    LastFailures[result] = 0;
+
+                LastFailures[result]++;
             }
 
             LastAttempts = MaxAttempts;
             return null;
+        }
+
+        // resumo em texto das falhas desta geracao, pro overlay e o log
+        public static string FailureSummary()
+        {
+            List<string> parts = new List<string>();
+
+            if (LastGeometryFails > 0)
+                parts.Add("Geometry:" + LastGeometryFails);
+
+            if (LastFailures != null)
+                foreach (var pair in LastFailures)
+                    parts.Add(pair.Key + ":" + pair.Value);
+
+            if (parts.Count == 0)
+                return "nenhuma";
+
+            return string.Join("  ", parts);
         }
 
         private static FloorPlan TryBuild(Area bounds, int seed, int trySeed,
@@ -54,7 +89,7 @@ namespace PCG.Generation
 
             if (otherSpan >= corridorWidth + minRoomSize * 2 && rng.Next(3) == 0)
                 horizontal = !horizontal;
-                
+
             int span = horizontal ? bounds.Height : bounds.Width;
 
             // precisa sobrar comodo dos dois lados da faixa
@@ -103,12 +138,12 @@ namespace PCG.Generation
             plan.Rooms.Add(new Room(corridor, RoomType.Hall));
             plan.Rooms.AddRange(rooms);
 
-            // tenta encurtar o corredor numa das pontas
+            // tenta encurtar o corredor nas pontas
             CorridorTrimmer.Trim(plan.Rooms, rng, minRoomSize);
 
-            // banheiro cede o fundo pro vizinho, pra nao ficar do tamanho de um quarto
             // banheiro de no maximo 20 celulas (5 m2), lado minimo de 4 (2 m)
-            BathroomShrinker.Shrink(plan.Rooms, 20, 4, 2);            
+            BathroomShrinker.Shrink(plan.Rooms, 20, 4, 2);
+
             return plan;
         }
 
