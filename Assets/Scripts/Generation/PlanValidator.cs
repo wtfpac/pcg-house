@@ -9,6 +9,7 @@ namespace PCG.Generation
         public enum Failure
         {
             None,
+            Gap,
             Overlap,
             Facade,
             Circulation,
@@ -20,7 +21,21 @@ namespace PCG.Generation
             return type == RoomType.Living || type == RoomType.Hall;
         }
 
-        // regra 1: nenhuma parte de um comodo invade a de outro
+        // regra 1: nenhuma celula dentro da casa pode ficar sem comodo
+        public static bool NoGaps(FloorPlan plan)
+        {
+            CellMap map = new CellMap(plan);
+            Area b = plan.Bounds;
+
+            for (int x = 0; x < b.Width; x++)
+                for (int y = 0; y < b.Height; y++)
+                    if (map.At(x, y) == CellMap.Outside)
+                        return false;
+
+            return true;
+        }
+
+        // regra 2: nenhuma parte de um comodo invade a de outro
         public static bool NoOverlap(FloorPlan plan)
         {
             for (int i = 0; i < plan.Rooms.Count; i++)
@@ -46,7 +61,7 @@ namespace PCG.Generation
             return true;
         }
 
-        // regra 2: todo comodo encosta em parede externa, pra poder ter janela.
+        // regra 3: todo comodo encosta em parede externa, pra poder ter janela.
         // o hall e excecao: corredor nao precisa de janela.
         public static bool EveryRoomTouchesFacade(FloorPlan plan)
         {
@@ -77,7 +92,7 @@ namespace PCG.Generation
             return true;
         }
 
-        // regra 3: todo comodo encosta em algum comodo de circulacao
+        // regra 4: todo comodo encosta em algum comodo de circulacao
         public static bool EveryRoomTouchesCirculation(FloorPlan plan, int minShared)
         {
             for (int i = 0; i < plan.Rooms.Count; i++)
@@ -106,7 +121,7 @@ namespace PCG.Generation
             return false;
         }
 
-        // regra 4: os comodos de circulacao estao ligados entre si
+        // regra 5: os comodos de circulacao estao ligados entre si
         public static bool CirculationIsConnected(FloorPlan plan, int minShared)
         {
             List<int> circulation = new List<int>();
@@ -144,6 +159,9 @@ namespace PCG.Generation
         // roda todas as regras e diz qual falhou primeiro
         public static Failure Check(FloorPlan plan, int minShared)
         {
+            if (!NoGaps(plan))
+                return Failure.Gap;
+
             if (!NoOverlap(plan))
                 return Failure.Overlap;
 

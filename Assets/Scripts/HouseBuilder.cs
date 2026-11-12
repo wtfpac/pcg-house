@@ -13,13 +13,21 @@ public class HouseBuilder : MonoBehaviour
     public int houseHeight = 16;
     public int minRoomSize = 5;
 
-    [Header("Escala e medidas")]
+    [Header("Escala e me88888888887777y didas")]
     public float unitSize = 0.5f;        // quantos metros vale uma celula
     public float wallHeight = 2.7f;
     public float wallThickness = 0.1f;
 
     private HashSet<DoorPlacer.WallKey> doors;
     private bool showOverlay = true;
+
+    // dados da ultima geracao, mostrados na tela e no console
+    private int lastRooms;
+    private int lastEdges;
+    private int lastDoors;
+    private int lastAttempts;
+    private float lastMillis;
+    private string lastFailure = "-";
 
     void Start()
     {
@@ -40,19 +48,37 @@ public class HouseBuilder : MonoBehaviour
             StartCoroutine(TakeScreenshot());
     }
 
-    // desenha a versao no canto inferior esquerdo da tela
+    // painel de dados no canto superior esquerdo
     void OnGUI()
     {
         if (!showOverlay)
             return;
 
         GUIStyle style = new GUIStyle();
-        style.fontSize = 16;
+        style.fontSize = 15;
         style.normal.textColor = Color.white;
 
-        string text = "v" + version + "  |  seed " + seed;
+        string[] lines =
+        {
+            "semente: " + seed,
+            "comodos: " + lastRooms,
+            "portas: " + lastDoors,
+            "tentativas: " + lastAttempts,
+            "tempo: " + lastMillis.ToString("F2") + " ms",
+            "ultima falha: " + lastFailure,
+            "v" + version
+        };
 
-        GUI.Label(new Rect(12, Screen.height - 28, 400, 24), text, style);
+        // fundo escuro, pra ler em cima de qualquer cor
+        GUI.Box(new Rect(8, 8, 220, lines.Length * 19 + 10), "");
+
+        int y = 12;
+
+        foreach (string line in lines)
+        {
+            GUI.Label(new Rect(14, y, 400, 20), line, style);
+            y += 19;
+        }
     }
 
     // espera o frame terminar de desenhar antes de capturar,
@@ -64,7 +90,7 @@ public class HouseBuilder : MonoBehaviour
         yield return new WaitForEndOfFrame();
 
         string stamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        string file = "print_v" + version + "_" + stamp + ".png";
+        string file = "print_v" + version + "_seed" + seed + "_" + stamp + ".png";
 
         ScreenCapture.CaptureScreenshot(file);
         Debug.Log("print salvo: " + file);
@@ -73,33 +99,56 @@ public class HouseBuilder : MonoBehaviour
     void Build()
     {
         // apaga a casa anterior pra montar uma nova qnd aperta R
-        // comodo pode ter mais de uma parte (formato em L)
-        foreach (Room room in plan.Rooms)
-            foreach (Area part in room.Parts)
-                CreateFloor(part, room.Type);
+        foreach (Transform child in transform)
+            Destroy(child.gameObject);
 
         Area bounds = new Area(0, 0, houseWidth, houseHeight);
 
-        // o planner corta, nomeia e valida. tenta ate dar certo.
+        // cronometra so a geracao, sem contar a construcao da cena
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         FloorPlan plan = HousePlanner.Build(bounds, seed, minRoomSize, 5, 7, 2, 2);
+        watch.Stop();
+
+        lastMillis = (float)watch.Elapsed.TotalMilliseconds;
 
         if (plan == null)
         {
-            Debug.LogWarning("nenhuma planta valida com a semente " + seed);
+            lastRooms = 0;
+            lastEdges = 0;
+            lastDoors = 0;
+            lastAttempts = HousePlanner.MaxAttempts;
+            lastFailure = "sem planta valida";
+
+            Debug.LogWarning("semente " + seed + ": nenhuma planta valida em "
+                             + HousePlanner.MaxAttempts + " tentativas");
             return;
         }
-
-        Debug.Log("comodos: " + plan.RoomCount
-                  + " | tentativas: " + HousePlanner.LastAttempts
-                  + " | ultima falha: " + HousePlanner.LastFailure);
 
         var edges = RoomGraph.Build(plan.Rooms, 2);
         doors = DoorPlacer.Place(plan, edges);
 
-        Debug.Log("conexoes: " + edges.Count + " | portas: " + doors.Count);
+        // porta da rua
+        var entrance = EntrancePlacer.Place(plan);
 
+        if (entrance.HasValue)
+            doors.Add(entrance.Value);
+        else
+            Debug.LogWarning("sem entrada: nem sala nem corredor tocam a fachada");
+
+        lastRooms = plan.RoomCount;
+        lastEdges = edges.Count;
+        lastDoors = doors.Count;
+        lastAttempts = HousePlanner.LastAttempts;
+        lastFailure = HousePlanner.LastFailure.ToString();
+
+        Debug.Log($"semente {seed} | {lastRooms} comodos | {lastEdges} conexoes | "
+                  + $"{lastDoors} portas | {lastAttempts} tentativas | "
+                  + $"{lastMillis:F2} ms | ultima falha: {lastFailure}");
+
+        // comodo pode ter mais de uma parte (formato em L)
         foreach (Room room in plan.Rooms)
-            CreateFloor(room);
+            foreach (Area part in room.Parts)
+                CreateFloor(part, room.Type);
 
         BuildWalls(plan);
     }
@@ -147,12 +196,13 @@ public class HouseBuilder : MonoBehaviour
                 if (map.At(x, y + 1) != here && !IsDoor(false, x, y + 1))
                     CreateWall(x + 0.5f, y + 1, 1f, 0f);
 
-                // borda esquerda e de cima so existem na primeira
-                // coluna e primeira linha, onde nao ha celula anterior
-                if (x == 0)
+                // borda esquerda e de cima so existem na primeira coluna
+                // e primeira linha. consultam IsDoor igual as outras,
+                // senao a porta de entrada some quando cai nesses lados.
+                if (x == 0 && !IsDoor(true, x, y))
                     CreateWall(x, y + 0.5f, 0f, 1f);
 
-                if (y == 0)
+                if (y == 0 && !IsDoor(false, x, y))
                     CreateWall(x + 0.5f, y, 1f, 0f);
             }
         }
