@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // escolhe onde fica a porta da rua. prefere a sala;
-    // se ela nao tocar fachada, tenta o corredor.
+    // escolhe onde fica a porta da rua. prefere a sala; (analisar se vamos continuar com ese trecho d poder ser no corredor)
+    // se ela nao tocar fachada, tenta o corredor
     public static class EntrancePlacer
     {
         public static DoorPlacer.WallKey? Place(FloorPlan plan)

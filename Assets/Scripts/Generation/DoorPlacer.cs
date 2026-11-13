@@ -2,8 +2,6 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // decide onde abrir porta, respeitando um limite por tipo de comodo.
-    // quarto e banheiro tem uma porta so; sala e corredor nao tem limite.
     public static class DoorPlacer
     {
         public struct WallKey
@@ -20,7 +18,6 @@ namespace PCG.Generation
             }
         }
 
-        // quantas portas cada tipo pode ter. -1 significa sem limite.
         private static int DoorLimit(RoomType type)
         {
             switch (type)
@@ -28,7 +25,7 @@ namespace PCG.Generation
                 case RoomType.Bedroom:  return 1;
                 case RoomType.Bathroom: return 1;
                 case RoomType.Kitchen:  return 2;
-                default:                return -1;   // sala e corredor
+                default:                return -1;
             }
         }
 
@@ -47,7 +44,7 @@ namespace PCG.Generation
             HashSet<WallKey> doors = new HashSet<WallKey>();
             int[] used = new int[plan.Rooms.Count];
 
-            // ordena: comodo privativo prefere abrir no corredor,
+            // comodos privados tem preferencia d porta no corredor
             // depois vem qualquer ligacao com circulacao
             List<RoomGraph.Edge> sorted = new List<RoomGraph.Edge>(edges);
 
@@ -100,9 +97,8 @@ namespace PCG.Generation
             return limit < 0 || used[index] < limit;
         }
 
-        // junta as celulas de parede entre os dois comodos, testando
-        // todas as partes de um contra todas as partes do outro.
-        // devolve o maior trecho continuo encontrado.
+        // testa tds celulas d um comodo contra as partes do outro lado
+        // devolve o maior trecho continuo encontrado
         private static List<WallKey> FindSharedWall(Room a, Room b)
         {
             List<WallKey> best = new List<WallKey>();

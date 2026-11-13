@@ -2,8 +2,7 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // verifica se uma planta respeita as regras espaciais do projeto.
-    // cada metodo e uma regra, testada separadamente.
+    // REGRAS ESPACIAIS
     public static class PlanValidator
     {
         public enum Failure

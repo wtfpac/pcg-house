@@ -3,18 +3,16 @@ using System.Collections.Generic;
 namespace PCG.Generation
 {
     // regra unica de vizinhanca. trabalha tanto com retangulos soltos
-    // quanto com comodos compostos por varios retangulos.
+    // quanto com comodos compostos por varios retangulos
     public static class Adjacency
     {
-        // dois retangulos sao vizinhos se as bordas se tocam e o
-        // trecho em comum tem pelo menos minShared celulas
+        // dois retangulos sao vizinhos caso se toquem, um trecho em comum tem pelo menos MINSHARED celulas
         public static bool AreNeighbours(Area a, Area b, int minShared)
         {
             return SharedLength(a, b) >= minShared;
         }
 
-        // dois comodos sao vizinhos se alguma parte de um
-        // encosta em alguma parte do outro
+        // dois comodos sao vizinhos se uma celula d um encosta na celula do outro
         public static bool AreNeighbours(Room a, Room b, int minShared)
         {
             return SharedLength(a, b) >= minShared;
@@ -57,7 +55,7 @@ namespace PCG.Generation
             return best;
         }
 
-        // quanto dois intervalos se cruzam. zero ou menos = nao se cruzam.
+        // quanto dois intervalos se cruzam. zero ou menos = nao se cruzam
         public static int Overlap(int startA, int endA, int startB, int endB)
         {
             int start = startA > startB ? startA : startB;

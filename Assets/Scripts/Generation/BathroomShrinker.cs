@@ -2,8 +2,7 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // banheiro nao precisa ser do tamanho de um quarto. doa fileiras
-    // dele pros vizinhos ate caber na area alvo.
+    // encurta banheiros, doa celulas p comodos adjacentes
     public static class BathroomShrinker
     {
         public static void Shrink(List<Room> rooms, int maxArea, int minSide, int minShared)
@@ -16,7 +15,6 @@ namespace PCG.Generation
                 if (rooms[i].Parts.Count != 1)
                     continue;
 
-                // doa uma fileira por vez ate caber, ou ate travar
                 for (int pass = 0; pass < 12; pass++)
                 {
                     if (rooms[i].Area.Size <= maxArea)
@@ -28,8 +26,7 @@ namespace PCG.Generation
             }
         }
 
-        // tenta doar uma fileira de 1 celula de espessura.
-        // devolve false se nenhum lado aceitou.
+        // tenta doar uma fileira de 1 celula de espessura, devolve false se nenhum lado aceitou
         private static bool DonateOneRow(List<Room> rooms, int index, int minSide, int minShared)
         {
             int keepSide = FindCirculationSide(rooms, index, minShared);
@@ -70,7 +67,7 @@ namespace PCG.Generation
             if (target < 0)
                 return false;
 
-            // o banheiro perde so o pedaco doado
+            // giva espaço doado
             rooms[index].Parts.Clear();
             rooms[index].Parts.AddRange(Subtract(a, piece));
 
@@ -79,8 +76,8 @@ namespace PCG.Generation
             return true;
         }
 
-        // acha um vizinho que encosta em parte da fileira.
-        // devolve em "piece" so o trecho que esse vizinho cobre.
+        // acha um vizinho que encosta em parte da fileira
+        // devolve em "piece so o trecho que esse vizinho cobre
         private static int FindPartialReceiver(List<Room> rooms, int skip, Area row,
                                                bool vertical, out Area piece)
         {
@@ -136,21 +133,18 @@ namespace PCG.Generation
             return -1;
         }
 
-        // o que sobra do retangulo a depois de tirar o pedaco.
-        // devolve ate tres retangulos, cobrindo o resto sem buraco.
+        // o que sobra do retangulo a depois de tirar o pedaco
+        // devolve ate tres retangulos, cobrindo o resto sem buraco
         private static List<Area> Subtract(Area a, Area cut)
         {
             List<Area> rest = new List<Area>();
 
-            // faixa acima do corte
             if (cut.Y > a.Y)
                 rest.Add(new Area(a.X, a.Y, a.Width, cut.Y - a.Y));
 
-            // faixa abaixo do corte
             if (cut.Bottom < a.Bottom)
                 rest.Add(new Area(a.X, cut.Bottom, a.Width, a.Bottom - cut.Bottom));
 
-            // esquerda e direita, na altura do corte
             if (cut.X > a.X)
                 rest.Add(new Area(a.X, cut.Y, cut.X - a.X, cut.Height));
 
@@ -160,7 +154,7 @@ namespace PCG.Generation
             return rest;
         }
 
-        // de que lado esta a circulacao, pra nao cortar ali.
+        // lado das circulacoes, p nao cortar esse lado
         // 0 = cima, 1 = esquerda, 2 = baixo, 3 = direita, -1 = nenhum
         private static int FindCirculationSide(List<Room> rooms, int index, int minShared)
         {

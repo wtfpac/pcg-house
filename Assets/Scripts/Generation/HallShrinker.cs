@@ -2,8 +2,7 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // reduz o hall pra largura de corredor e devolve o espaco
-    // liberado ao comodo vizinho.
+    // reduz o hall pra largura de corredor e devolve o espaco liberado ao comodo vizinho
     public static class HallShrinker
     {
         public static void Shrink(List<Room> rooms, int corridorWidth, int minShared)
@@ -19,7 +18,7 @@ namespace PCG.Generation
             bool shrinkWidth = a.Width >= a.Height;
 
             if (shrinkWidth && a.Width <= corridorWidth)
-                return;   // ja esta fino
+                return;
 
             if (!shrinkWidth && a.Height <= corridorWidth)
                 return;
@@ -75,8 +74,7 @@ namespace PCG.Generation
             }
         }
 
-        private static void ShrinkVertical(List<Room> rooms, int hall,
-                                           int corridorWidth, int minShared)
+        private static void ShrinkVertical(List<Room> rooms, int hall, int corridorWidth, int minShared)
         {
             Area a = rooms[hall].Area;
             int freed = a.Height - corridorWidth;
@@ -110,7 +108,7 @@ namespace PCG.Generation
             }
         }
 
-        // todos os comodos que encostam na linha informada
+        // todos os comodos que encostam na linha
         private static List<int> FindNeighboursAt(List<Room> rooms, int skip, int line,
                                                   bool vertical, int minShared)
         {

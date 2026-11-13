@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // corta a casa em retangulos com BSP recursivo.
-    // nao decide tipo de comodo ainda, so geometria.
+    // corta a casa em retangulos com BSP recursivo
+    // nao decide tipo de comodo ainda, so geometria
     public class HouseGenerator
     {
         private readonly int minRoomSize;
@@ -28,7 +28,7 @@ namespace PCG.Generation
                 int index = PickBiggestSplittable(areas);
 
                 if (index < 0)
-                    break;   // ninguem mais pode ser cortado
+                    break;
 
                 Area target = areas[index];
                 Split(target, out Area a, out Area b);
@@ -41,7 +41,6 @@ namespace PCG.Generation
             return areas;
         }
 
-        // o maior retangulo que ainda aceita corte. -1 se nenhum aceita.
         private int PickBiggestSplittable(List<Area> areas)
         {
             int best = -1;
@@ -63,7 +62,7 @@ namespace PCG.Generation
             return area.Width >= minRoomSize * 2 || area.Height >= minRoomSize * 2;
         }
 
-        // corta o retangulo em dois. so e chamado quando CanSplit deu true.
+        // corta o retangulo em dois. só eh chamado quando CanSplit deu true
         private void Split(Area area, out Area first, out Area second)
         {
             bool canVertical = area.Width >= minRoomSize * 2;

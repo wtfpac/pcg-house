@@ -13,8 +13,7 @@ namespace PCG.Generation
             if (hall < 0)
                 return;
 
-            // tenta as duas pontas. de vez em quando deixa uma inteira,
-            // pra nem toda casa ficar igual.
+            // tenta as duas pontas. de vez em quando deixa uma inteira, pra nem toda casa ficar igual
             for (int side = 0; side < 2; side++)
             {
                 if (rng.Next(4) == 0)
@@ -43,18 +42,18 @@ namespace PCG.Generation
             if (length <= minLength)
                 return;
 
-            // quanto da ponta cortar
-            // corte minimo de 3 celulas, senao a sobra e inutil
+            // quanto da ponta cortar, corte minimo de 3 celulas, senao a sobra é inutil
             int minCut = 3;
 
             if (length - minLength < minCut)
-                return;   // nao da pra cortar um pedaco util
+                return;
 
-            int cut = rng.Next(minCut, length - minLength + 1);            bool fromEnd = rng.Next(2) == 0;
+            int cut = rng.Next(minCut, length - minLength + 1);            
+            bool fromEnd = rng.Next(2) == 0;
 
             Area strip = CutStrip(h, cut, fromEnd, horizontal);
 
-            // quem recebe o pedaco: um comodo encostado nele
+            // um comodo encostado recebe essa piece
             int target = FindReceiver(rooms, hall, strip, horizontal);
 
             if (target < 0)
@@ -95,8 +94,7 @@ namespace PCG.Generation
                 : new Area(h.X, h.Y + cut, h.Width, h.Height - cut);
         }
 
-        // acha um comodo que encosta na faixa doada ao longo de todo
-        // o lado dela. assim o pedaco se cola sem deixar buraco.
+        // acha um comodo que encosta na faixa doada inteira ao lado dela, dai o pedaço se cola sem deixar buraco
         private static int FindReceiver(List<Room> rooms, int hall, Area strip,
                                         bool horizontal)
         {
@@ -109,7 +107,6 @@ namespace PCG.Generation
                 {
                     if (horizontal)
                     {
-                        // precisa estar acima ou abaixo, cobrindo a largura toda
                         bool stacked = a.Bottom == strip.Y || a.Y == strip.Bottom;
                         bool covers = a.X <= strip.X && a.Right >= strip.Right;
 

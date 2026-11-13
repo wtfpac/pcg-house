@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace PCG.Generation
 {
     // monta uma planta completa: reserva o corredor, corta o resto,
-    // nomeia e valida. tenta de novo se a planta nao passar nas regras.
+    // nomeia e valida. tenta de novo se a planta nao passar nas regras
     public static class HousePlanner
     {
         public const int MaxAttempts = 60;
@@ -21,14 +21,13 @@ namespace PCG.Generation
                                       int minRooms, int maxRooms, int minShared,
                                       int corridorWidth)
         {
-            // zera o estado da geracao anterior, senao o resumo mostra
-            // falhas que nao sao desta casa
+            // zera o estado da geracao anterior
             LastFailures = new Dictionary<PlanValidator.Failure, int>();
             LastGeometryFails = 0;
 
             for (int attempt = 0; attempt < MaxAttempts; attempt++)
             {
-                // semente derivada, pra mesma entrada dar sempre o mesmo resultado
+                // semente derivada, mesma entrada = msm resultado
                 int trySeed = seed + attempt * 7919;
                 System.Random rng = new System.Random(trySeed);
 
@@ -38,7 +37,7 @@ namespace PCG.Generation
                 if (plan == null)
                 {
                     LastGeometryFails++;
-                    continue;   // a faixa nao coube nesta tentativa
+                    continue;
                 }
 
                 PlanValidator.Failure result = PlanValidator.Check(plan, minShared);

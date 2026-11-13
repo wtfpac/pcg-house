@@ -1,6 +1,6 @@
 namespace PCG.Generation
 {
-    //retangulo em coordenadas inteiras. x y e o canto superiior esquerdo
+    //retangulo em coordenadas inteiras
     public struct Area
     {
         public int X;

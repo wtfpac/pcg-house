@@ -1,7 +1,7 @@
 namespace PCG.Generation
 {
-    // grade que diz, pra cada celula, a qual comodo ela pertence.
-    // usamos pra achar onde vai parede: entre comodos diferentes.
+    // grade que diz, pra cada celula, a qual comodo ela pertence
+    // usamos pra achar onde vai parede: entre comodos diferentes
     public class CellMap
     {
         public const int Outside = -1;
