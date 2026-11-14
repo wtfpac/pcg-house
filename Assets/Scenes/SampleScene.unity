@@ -412,7 +412,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 296cf17aee390334ba4a4551ff7c9d77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HouseBuilder
-  version: 0.1
+  version: 1.0
   seed: 42
   houseWidth: 20
   houseHeight: 16
