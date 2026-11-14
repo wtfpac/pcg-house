@@ -1,80 +1,80 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using PCG.Generation;
 using PCG.Preview;
 
+// visualizador de console. usa os mesmos arquivos da pasta Generation do projeto unity.
+//   dotnet run                 -> uma casa com semente sorteada
+//   dotnet run 42              -> a casa da semente 42
+//   dotnet run batch           -> bateria de 1000 casas, gera um csv em results/
+//   dotnet run batch 5000      -> bateria de 5000 casas
+//   dotnet run batch 1000 28x20 -> bateria com outro tamanho de casa (em celulas)
 class Program
 {
     static void Main(string[] args)
     {
+        HouseSettings settings = new HouseSettings();
+
+        if (args.Length > 0 && args[0] == "batch")
+        {
+            RunBatch(args, settings);
+            return;
+        }
+
         int seed;
 
         if (args.Length == 0 || !int.TryParse(args[0], out seed))
             seed = new Random().Next(0, 999999);
 
-        Area bounds = new Area(0, 0, 20, 16);
-        FloorPlan plan = HousePlanner.Build(bounds, seed, 5, 5, 7, 2, 2);
+        GenerationResult result = HousePlanner.Generate(settings, seed);
 
-        if (plan == null)
+        Console.WriteLine($"v{HousePlanner.Version} | semente {seed} | "
+                          + $"{result.Attempts} tentativas | {result.Milliseconds:F2} ms");
+        Console.WriteLine($"falhas no caminho: {result.FailureSummary()}");
+
+        if (!result.Success)
         {
-            Console.WriteLine($"semente {seed}: nenhuma planta valida");
-            Console.WriteLine($"falhas: {HousePlanner.FailureSummary()}");
+            Console.WriteLine("nenhuma planta valida");
             return;
         }
 
-        var edges = RoomGraph.Build(plan.Rooms, 2);
-        var doors = DoorPlacer.Place(plan, edges);
-        var entrance = EntrancePlacer.Place(plan);
+        FloorPlan plan = result.Plan;
 
-        if (entrance.HasValue)
-            doors.Add(entrance.Value);
-
-        Console.WriteLine($"semente {seed} | {plan.RoomCount} comodos | "
-                          + $"{edges.Count} conexoes | {doors.Count} portas | "
-                          + $"{HousePlanner.LastAttempts} tentativas");
-
-        Console.WriteLine($"composicao: {Composition(plan)}");
-        Console.WriteLine($"entrada: {EntranceSide(plan, entrance)}");
-        Console.WriteLine($"falhas no caminho: {HousePlanner.FailureSummary()}");
+        Console.WriteLine($"{plan.RoomCount} comodos | {plan.Edges.Count} conexoes | "
+                          + $"{plan.Doors.Count} portas");
+        Console.WriteLine($"quartos: {plan.CountOf(RoomType.Bedroom)} | "
+                          + $"banheiros: {plan.CountOf(RoomType.Bathroom)}");
+        Console.WriteLine($"entrada: {PlanInfo.EntranceSide(plan)}");
         Console.WriteLine();
-        Console.WriteLine(PlanRenderer.Render(plan, doors));
+        Console.WriteLine(PlanRenderer.Render(plan));
     }
 
-    // conta quantos comodos de cada tipo a casa tem
-    static string Composition(FloorPlan plan)
+    // le "batch [quantidade] [largura x altura]" e roda a bateria
+    static void RunBatch(string[] args, HouseSettings settings)
     {
-        Dictionary<RoomType, int> count = new Dictionary<RoomType, int>();
+        int count = 1000;
 
-        foreach (Room room in plan.Rooms)
+        if (args.Length > 1 && !int.TryParse(args[1], out count))
         {
-            if (!count.ContainsKey(room.Type))
-                count[room.Type] = 0;
-
-            count[room.Type]++;
+            Console.WriteLine("quantidade invalida: " + args[1]);
+            return;
         }
 
-        List<string> parts = new List<string>();
+        if (args.Length > 2)
+        {
+            string[] size = args[2].ToLower().Split('x');
+            int width, height;
 
-        foreach (var pair in count)
-            parts.Add($"{pair.Key}:{pair.Value}");
+            if (size.Length != 2 || !int.TryParse(size[0], out width)
+                || !int.TryParse(size[1], out height))
+            {
+                Console.WriteLine("tamanho invalido, use o formato 28x20: " + args[2]);
+                return;
+            }
 
-        return string.Join("  ", parts);
-    }
+            settings.Width = width;
+            settings.Height = height;
+        }
 
-    // em qual fachada a porta da rua ficou
-    static string EntranceSide(FloorPlan plan, DoorPlacer.WallKey? entrance)
-    {
-        if (!entrance.HasValue)
-            return "NAO ENCONTRADA";
-
-        DoorPlacer.WallKey k = entrance.Value;
-        Area b = plan.Bounds;
-
-        if (k.Vertical && k.X == b.X) return "oeste";
-        if (k.Vertical && k.X == b.Right) return "leste";
-        if (!k.Vertical && k.Y == b.Y) return "norte";
-        if (!k.Vertical && k.Y == b.Bottom) return "sul";
-
-        return "interna (erro)";
+        BatchRunner.Run(count, settings);
     }
 }

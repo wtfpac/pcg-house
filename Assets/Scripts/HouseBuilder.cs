@@ -1,33 +1,21 @@
+using System.Collections.Generic;
 using UnityEngine;
 using PCG.Generation;
-using System.Collections.Generic;
 
-// le a planta gerada e constroi a casa na cena
+// camada da unity: pede uma planta ao gerador e constroi a casa na cena.
+// toda a logica de geracao fica na pasta Generation, que e c# puro.
+// teclas: R gera outra casa, P salva um print.
 public class HouseBuilder : MonoBehaviour
 {
-    public string version = "0.4";
     public int seed = 42;
+    public HouseSettings settings = new HouseSettings();
 
-    [Header("Tamanho em celulas")]
-    public int houseWidth = 20;
-    public int houseHeight = 16;
-    public int minRoomSize = 5;
-
-    [Header("Escala e me88888888887777y didas")]
+    [Header("Escala e medidas, em metros")]
     public float unitSize = 0.5f;        // quantos metros vale uma celula
     public float wallHeight = 2.7f;
     public float wallThickness = 0.1f;
 
-    private HashSet<DoorPlacer.WallKey> doors;
-    private bool showOverlay = true;
-
-    // dados da ultima geracao, mostrados na tela e no console
-    private int lastRooms;
-    private int lastEdges;
-    private int lastDoors;
-    private int lastAttempts;
-    private float lastMillis;
-    private string lastFailure = "-";
+    private GenerationResult last;       // a ultima geracao, mostrada no painel
 
     void Start()
     {
@@ -36,116 +24,43 @@ public class HouseBuilder : MonoBehaviour
 
     void Update()
     {
-        // R gera uma casa nova com semente random
+        // R gera uma casa nova com semente sorteada
         if (Input.GetKeyDown(KeyCode.R))
         {
             seed = Random.Range(0, 999999);
             Build();
         }
 
-        // P salva um print com a versao marcada no canto
+        // P salva um print
         if (Input.GetKeyDown(KeyCode.P))
             StartCoroutine(TakeScreenshot());
     }
 
-    // painel de dados no canto superior esquerdo
-    void OnGUI()
-    {
-        if (!showOverlay)
-            return;
-
-        GUIStyle style = new GUIStyle();
-        style.fontSize = 15;
-        style.normal.textColor = Color.white;
-
-        string[] lines =
-        {
-            "semente: " + seed,
-            "comodos: " + lastRooms,
-            "portas: " + lastDoors,
-            "tentativas: " + lastAttempts,
-            "tempo: " + lastMillis.ToString("F2") + " ms",
-            "ultima falha: " + lastFailure,
-            "v" + version
-        };
-
-        // fundo escuro, pra ler em cima de qualquer cor
-        GUI.Box(new Rect(8, 8, 220, lines.Length * 19 + 10), "");
-
-        int y = 12;
-
-        foreach (string line in lines)
-        {
-            GUI.Label(new Rect(14, y, 400, 20), line, style);
-            y += 19;
-        }
-    }
-
-    // espera o frame terminar de desenhar antes de capturar,
-    // senao o overlay pode nao aparecer no print
-    System.Collections.IEnumerator TakeScreenshot()
-    {
-        showOverlay = true;
-
-        yield return new WaitForEndOfFrame();
-
-        string stamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        string file = "print_v" + version + "_seed" + seed + "_" + stamp + ".png";
-
-        ScreenCapture.CaptureScreenshot(file);
-        Debug.Log("print salvo: " + file);
-    }
-
     void Build()
     {
-        // apaga a casa anterior pra montar uma nova qnd aperta R
+        // apaga a casa anterior
         foreach (Transform child in transform)
             Destroy(child.gameObject);
 
-        Area bounds = new Area(0, 0, houseWidth, houseHeight);
+        last = HousePlanner.Generate(settings, seed);
 
-        // cronometra so a geracao, sem contar a construcao da cena
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        FloorPlan plan = HousePlanner.Build(bounds, seed, minRoomSize, 5, 7, 2, 2);
-        watch.Stop();
-
-        lastMillis = (float)watch.Elapsed.TotalMilliseconds;
-
-        if (plan == null)
+        if (!last.Success)
         {
-            lastRooms = 0;
-            lastEdges = 0;
-            lastDoors = 0;
-            lastAttempts = HousePlanner.MaxAttempts;
-            lastFailure = HousePlanner.FailureSummary();
-
-            Debug.LogWarning("semente " + seed + ": nenhuma planta valida em "
-                             + HousePlanner.MaxAttempts + " tentativas");
+            Debug.LogWarning($"semente {seed}: nenhuma planta valida em {last.Attempts} "
+                             + $"tentativas | falhas: {last.FailureSummary()}");
             return;
         }
 
-        var edges = RoomGraph.Build(plan.Rooms, 2);
-        doors = DoorPlacer.Place(plan, edges);
+        FloorPlan plan = last.Plan;
 
-        // porta da rua
-        var entrance = EntrancePlacer.Place(plan);
+        Debug.Log($"semente {seed} | {plan.RoomCount} comodos | {plan.Edges.Count} conexoes | "
+                  + $"{plan.Doors.Count} portas | {last.Attempts} tentativas | "
+                  + $"{last.Milliseconds:F2} ms | falhas: {last.FailureSummary()}");
 
-        if (entrance.HasValue)
-            doors.Add(entrance.Value);
-        else
+        if (!plan.Entrance.HasValue)
             Debug.LogWarning("sem entrada: nem sala nem corredor tocam a fachada");
 
-        lastRooms = plan.RoomCount;
-        lastEdges = edges.Count;
-        lastDoors = doors.Count;
-        lastAttempts = HousePlanner.LastAttempts;
-        lastFailure = HousePlanner.FailureSummary();
-
-        Debug.Log($"semente {seed} | {lastRooms} comodos | {lastEdges} conexoes | "
-                  + $"{lastDoors} portas | {lastAttempts} tentativas | "
-                  + $"{lastMillis:F2} ms | ultima falha: {lastFailure}");
-
-        // comodo pode ter mais de uma parte (formato em L)
+        // um comodo em L tem mais de uma parte, e cada parte ganha sua laje
         foreach (Room room in plan.Rooms)
             foreach (Area part in room.Parts)
                 CreateFloor(part, room.Type);
@@ -153,95 +68,136 @@ public class HouseBuilder : MonoBehaviour
         BuildWalls(plan);
     }
 
-    // cria uma laje fina no lugar de uma parte do comodo. medidas em celulas.
+    // laje fina cobrindo uma parte de um comodo, com a cor do tipo dele
     void CreateFloor(Area area, RoomType type)
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = type.ToString();
-        go.transform.parent = transform;
+        // a Area guarda o canto e a unity posiciona pelo centro,
+        // por isso soma metade da largura e metade da altura
+        float centerX = (area.X + area.Width / 2f) * unitSize;
+        float centerZ = (area.Y + area.Height / 2f) * unitSize;
 
-        // a Area guarda o canto, a unity posiciona pelo centro
-        float cx = area.X + area.Width / 2f;
-        float cz = area.Y + area.Height / 2f;
-
-        go.transform.position = new Vector3(cx * unitSize, 0f, cz * unitSize);
-        go.transform.localScale = new Vector3(area.Width * unitSize, 0.1f,
-                                              area.Height * unitSize);
-
-        go.GetComponent<Renderer>().material.color = ColorFor(type);
+        CreateBox(type.ToString(),
+                  new Vector3(centerX, 0f, centerZ),
+                  new Vector3(area.Width * unitSize, 0.1f, area.Height * unitSize),
+                  ColorFor(type));
     }
 
-    // varre a grade e poe parede onde duas celulas vizinhas
-    // pertencem a comodos diferentes, ou onde faz borda com a rua.
-    // todas as medidas aqui estao em celulas.
+    // levanta parede em toda linha da grade que separa dois comodos diferentes.
+    // fora da casa o mapa devolve Outside, que nao e igual a nenhum comodo,
+    // entao a fachada sai da mesma regra das paredes internas.
     void BuildWalls(FloorPlan plan)
     {
         CellMap map = new CellMap(plan);
-        Area b = plan.Bounds;
+        int width = plan.Bounds.Width;
+        int height = plan.Bounds.Height;
 
-        for (int x = 0; x < b.Width; x++)
+        // paredes verticais: ficam entre a celula (x-1, y) e a celula (x, y)
+        for (int x = 0; x <= width; x++)
+            for (int y = 0; y < height; y++)
+                if (map.At(x - 1, y) != map.At(x, y))
+                    CreateWall(plan, new WallKey(true, x, y));
+
+        // paredes horizontais: ficam entre a celula (x, y-1) e a celula (x, y)
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y <= height; y++)
+                if (map.At(x, y - 1) != map.At(x, y))
+                    CreateWall(plan, new WallKey(false, x, y));
+    }
+
+    // um pedaco de parede de 1 celula de comprimento. se ali for porta, fica o vao.
+    void CreateWall(FloorPlan plan, WallKey key)
+    {
+        if (plan.Doors.Contains(key))
+            return;
+
+        // a chave marca o inicio do pedaco. o centro fica meia celula
+        // adiante, no sentido em que a parede corre.
+        float centerX = (key.Vertical ? key.X : key.X + 0.5f) * unitSize;
+        float centerZ = (key.Vertical ? key.Y + 0.5f : key.Y) * unitSize;
+
+        // 1 celula de comprimento num eixo, espessura fixa em metros no outro
+        float sizeX = key.Vertical ? wallThickness : unitSize;
+        float sizeZ = key.Vertical ? unitSize : wallThickness;
+
+        CreateBox("Wall",
+                  new Vector3(centerX, wallHeight / 2f, centerZ),
+                  new Vector3(sizeX, wallHeight, sizeZ),
+                  new Color(0.90f, 0.88f, 0.84f));
+    }
+
+    // todo objeto da casa e um cubo esticado, filho deste objeto.
+    // ser filho e o que permite apagar a casa inteira de uma vez no Build.
+    void CreateBox(string name, Vector3 center, Vector3 size, Color color)
+    {
+        GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        box.name = name;
+        box.transform.parent = transform;
+        box.transform.position = center;
+        box.transform.localScale = size;
+        box.GetComponent<Renderer>().material.color = color;
+    }
+
+    Color ColorFor(RoomType type)
+    {
+        switch (type)
         {
-            for (int y = 0; y < b.Height; y++)
-            {
-                int here = map.At(x, y);
-
-                if (here == CellMap.Outside)
-                    continue;
-
-                // vizinho da direita: parede vertical, 1 celula de comprimento
-                if (map.At(x + 1, y) != here && !IsDoor(true, x + 1, y))
-                    CreateWall(x + 1, y + 0.5f, 0f, 1f);
-
-                // vizinho de baixo: parede horizontal
-                if (map.At(x, y + 1) != here && !IsDoor(false, x, y + 1))
-                    CreateWall(x + 0.5f, y + 1, 1f, 0f);
-
-                // borda esquerda e de cima so existem na primeira coluna
-                // e primeira linha. consultam IsDoor igual as outras,
-                // senao a porta de entrada some quando cai nesses lados.
-                if (x == 0 && !IsDoor(true, x, y))
-                    CreateWall(x, y + 0.5f, 0f, 1f);
-
-                if (y == 0 && !IsDoor(false, x, y))
-                    CreateWall(x + 0.5f, y, 1f, 0f);
-            }
+            case RoomType.Living:   return new Color(0.78f, 0.42f, 0.20f);   // laranja
+            case RoomType.Kitchen:  return new Color(0.30f, 0.60f, 0.32f);   // verde
+            case RoomType.Bathroom: return new Color(0.22f, 0.48f, 0.78f);   // azul
+            case RoomType.Hall:     return new Color(0.85f, 0.80f, 0.35f);   // amarelo
+            default:                return new Color(0.58f, 0.42f, 0.75f);   // quarto, roxo
         }
     }
 
-    // essa celula de parede virou porta?
-    bool IsDoor(bool vertical, int x, int y)
+    // painel de dados no canto superior esquerdo
+    void OnGUI()
     {
-        return doors.Contains(new DoorPlacer.WallKey(vertical, x, y));
+        if (last == null)
+            return;
+
+        List<string> lines = new List<string>();
+        lines.Add("semente: " + last.Seed);
+
+        if (last.Success)
+        {
+            FloorPlan plan = last.Plan;
+
+            lines.Add("comodos: " + plan.RoomCount);
+            lines.Add("quartos: " + plan.CountOf(RoomType.Bedroom)
+                      + "   banheiros: " + plan.CountOf(RoomType.Bathroom));
+            lines.Add("portas: " + plan.Doors.Count);
+        }
+        else
+        {
+            lines.Add("nenhuma planta valida");
+        }
+
+        lines.Add("tentativas: " + last.Attempts);
+        lines.Add("tempo: " + last.Milliseconds.ToString("F2") + " ms");
+        lines.Add("falhas: " + last.FailureSummary());
+        lines.Add("v" + HousePlanner.Version);
+
+        GUIStyle style = new GUIStyle();
+        style.fontSize = 15;
+        style.normal.textColor = Color.white;
+
+        // fundo escuro, pra dar leitura em cima de qualquer cor
+        GUI.Box(new Rect(8, 8, 320, lines.Count * 19 + 10), "");
+
+        for (int i = 0; i < lines.Count; i++)
+            GUI.Label(new Rect(14, 12 + i * 19, 400, 20), lines[i], style);
     }
 
-    // cria um pedaco de parede. recebe tudo em celulas e converte
-    // pra metros aqui dentro, num lugar so.
-    void CreateWall(float x, float z, float sizeX, float sizeZ)
+    // espera o quadro terminar de desenhar antes de capturar,
+    // senao o painel pode ficar de fora do print
+    System.Collections.IEnumerator TakeScreenshot()
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "Wall";
-        go.transform.parent = transform;
+        yield return new WaitForEndOfFrame();
 
-        // espessura da parede e fixa em metros, nao escala com a celula.
-        // por isso cada eixo usa o maior entre o tamanho convertido
-        // e a espessura minima.
-        float worldX = Mathf.Max(sizeX * unitSize, wallThickness);
-        float worldZ = Mathf.Max(sizeZ * unitSize, wallThickness);
+        string stamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        string file = $"print_v{HousePlanner.Version}_seed{last.Seed}_{stamp}.png";
 
-        go.transform.position = new Vector3(x * unitSize, wallHeight / 2f, z * unitSize);
-        go.transform.localScale = new Vector3(worldX, wallHeight, worldZ);
-
-        go.GetComponent<Renderer>().material.color = new Color(0.90f, 0.88f, 0.84f);
-    }
-
-    // uma cor pra cada tipo
-    Color ColorFor(RoomType type)
-    {
-        if (type == RoomType.Living) return new Color(0.78f, 0.42f, 0.20f);    // laranja
-        if (type == RoomType.Kitchen) return new Color(0.30f, 0.60f, 0.32f);   // verde
-        if (type == RoomType.Bathroom) return new Color(0.22f, 0.48f, 0.78f);  // azul
-        if (type == RoomType.Hall) return new Color(0.85f, 0.80f, 0.35f);      // amarelo
-
-        return new Color(0.58f, 0.42f, 0.75f);                                  // quarto, roxo
+        ScreenCapture.CaptureScreenshot(file);
+        Debug.Log("print salvo: " + file);
     }
 }

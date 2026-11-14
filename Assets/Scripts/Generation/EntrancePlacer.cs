@@ -1,67 +1,54 @@
-using System.Collections.Generic;
-
 namespace PCG.Generation
 {
-    // escolhe onde fica a porta da rua. prefere a sala; (analisar se vamos continuar com ese trecho d poder ser no corredor)
-    // se ela nao tocar fachada, tenta o corredor
+    // escolhe onde fica a porta da rua: no meio do maior trecho de fachada
+    // da sala. se a sala nao tocar a fachada, tenta o corredor.
     public static class EntrancePlacer
     {
-        public static DoorPlacer.WallKey? Place(FloorPlan plan)
+        public static WallKey? Place(FloorPlan plan)
         {
-            // primeiro tenta a sala, que e o normal em casa terrea
-            DoorPlacer.WallKey? door = TryRoom(plan, RoomType.Living);
+            WallSpan facade = LongestFacade(plan, plan.Find(RoomType.Living));
 
-            if (door.HasValue)
-                return door;
+            if (facade.Length == 0)
+                facade = LongestFacade(plan, plan.Find(RoomType.Hall));
 
-            // sem sala na fachada, cai pro corredor
-            return TryRoom(plan, RoomType.Hall);
+            if (facade.Length == 0)
+                return null;
+
+            return facade.Middle;
         }
 
-        private static DoorPlacer.WallKey? TryRoom(FloorPlan plan, RoomType type)
+        // o maior trecho de parede externa do comodo. Length zero se nao houver.
+        private static WallSpan LongestFacade(FloorPlan plan, Room room)
         {
-            int index = FindByType(plan, type);
+            WallSpan best = new WallSpan();
 
-            if (index < 0)
-                return null;
+            if (room == null)
+                return best;
 
             Area b = plan.Bounds;
-            List<DoorPlacer.WallKey> options = new List<DoorPlacer.WallKey>();
 
-            // junta as celulas de fachada de todas as partes do comodo
-            foreach (Area a in plan.Rooms[index].Parts)
+            // cada parte do comodo pode tocar a borda da casa em ate quatro lados
+            foreach (Area a in room.Parts)
             {
                 if (a.X == b.X)
-                    for (int y = a.Y; y < a.Bottom; y++)
-                        options.Add(new DoorPlacer.WallKey(true, a.X, y));
+                    best = Longer(best, new WallSpan(true, a.X, a.Y, a.Height));
 
                 if (a.Right == b.Right)
-                    for (int y = a.Y; y < a.Bottom; y++)
-                        options.Add(new DoorPlacer.WallKey(true, a.Right, y));
+                    best = Longer(best, new WallSpan(true, a.Right, a.Y, a.Height));
 
                 if (a.Y == b.Y)
-                    for (int x = a.X; x < a.Right; x++)
-                        options.Add(new DoorPlacer.WallKey(false, x, a.Y));
+                    best = Longer(best, new WallSpan(false, a.Y, a.X, a.Width));
 
                 if (a.Bottom == b.Bottom)
-                    for (int x = a.X; x < a.Right; x++)
-                        options.Add(new DoorPlacer.WallKey(false, x, a.Bottom));
+                    best = Longer(best, new WallSpan(false, a.Bottom, a.X, a.Width));
             }
 
-            if (options.Count == 0)
-                return null;
-
-            // pega a do meio, pra nao cair bem no canto
-            return options[options.Count / 2];
+            return best;
         }
 
-        private static int FindByType(FloorPlan plan, RoomType type)
+        private static WallSpan Longer(WallSpan a, WallSpan b)
         {
-            for (int i = 0; i < plan.Rooms.Count; i++)
-                if (plan.Rooms[i].Type == type)
-                    return i;
-
-            return -1;
+            return b.Length > a.Length ? b : a;
         }
     }
 }
