@@ -3,9 +3,7 @@ using PCG.Generation;
 
 namespace PCG.Preview
 {
-    // desenha a planta em texto. usa a mesma regra de parede da unity:
-    // ha parede onde duas celulas vizinhas sao de comodos diferentes,
-    // menos onde foi aberta uma porta.
+    // desenha a planta em texto, com os vaos de porta marcados
     public static class PlanRenderer
     {
         public static string Render(FloorPlan plan)
@@ -61,11 +59,11 @@ namespace PCG.Preview
 
             switch (plan.Rooms[roomIndex].Type)
             {
-                case RoomType.Living:   return 'S';   // sala
-                case RoomType.Kitchen:  return 'C';   // cozinha
-                case RoomType.Bathroom: return 'B';   // banheiro
-                case RoomType.Hall:     return 'H';   // corredor
-                default:                return 'Q';   // quarto
+                case RoomType.Living:   return 'S';
+                case RoomType.Kitchen:  return 'C';
+                case RoomType.Bathroom: return 'B';
+                case RoomType.Hall:     return 'H';
+                default:                return 'Q';
             }
         }
     }

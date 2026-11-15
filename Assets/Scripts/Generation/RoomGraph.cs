@@ -2,11 +2,10 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // grafo de adjacencia da casa: os comodos sao os nos, e cada
-    // aresta liga dois comodos que compartilham parede.
+    // descobre quais comodos encostam em quais.
+    // funciona com comodos compostos por varias partes.
     public static class RoomGraph
     {
-        // A e B sao as posicoes dos dois comodos na lista plan.Rooms
         public struct Edge
         {
             public int A;
@@ -25,7 +24,7 @@ namespace PCG.Generation
         {
             List<Edge> edges = new List<Edge>();
 
-            // j comeca em i+1 pra testar cada par uma vez so
+            // j comeca em i+1 pra nao repetir par nem comparar consigo mesmo
             for (int i = 0; i < rooms.Count; i++)
             {
                 for (int j = i + 1; j < rooms.Count; j++)

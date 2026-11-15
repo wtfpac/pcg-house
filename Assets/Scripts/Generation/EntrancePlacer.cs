@@ -1,23 +1,25 @@
 namespace PCG.Generation
 {
-    // escolhe onde fica a porta da rua: no meio do maior trecho de fachada
-    // da sala. se a sala nao tocar a fachada, tenta o corredor.
+    // escolhe onde fica a porta da rua. prefere a sala; (analisar se vamos continuar com ese trecho d poder ser no corredor)
+    // se ela nao tocar fachada, tenta o corredor
     public static class EntrancePlacer
     {
         public static WallKey? Place(FloorPlan plan)
         {
+            // primeiro tenta a sala, que e o normal em casa terrea
             WallSpan facade = LongestFacade(plan, plan.Find(RoomType.Living));
 
+            // sem sala na fachada, cai pro corredor
             if (facade.Length == 0)
                 facade = LongestFacade(plan, plan.Find(RoomType.Hall));
 
             if (facade.Length == 0)
                 return null;
 
+            // pega a do meio, pra nao cair bem no canto
             return facade.Middle;
         }
 
-        // o maior trecho de parede externa do comodo. Length zero se nao houver.
         private static WallSpan LongestFacade(FloorPlan plan, Room room)
         {
             WallSpan best = new WallSpan();

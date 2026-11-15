@@ -1,8 +1,7 @@
 namespace PCG.Generation
 {
-    // o corredor nasce atravessando a casa de ponta a ponta. aqui ele e
-    // encurtado: o pedaco cortado da ponta e doado ao comodo vizinho,
-    // que por isso pode ficar em L.
+    // encurta o corredor nas pontas e doa o espaco liberado ao comodo
+    // vizinho. o comodo pode ficar em L, por isso guardamos em Parts.
     public static class CorridorTrimmer
     {
         // 1 em cada 4 vezes a ponta fica inteira, pra nem toda casa sair igual
@@ -15,7 +14,7 @@ namespace PCG.Generation
             if (hall == null)
                 return;
 
-            // duas tentativas de corte, uma pra cada ponta
+            // tenta as duas pontas. de vez em quando deixa uma inteira, pra nem toda casa ficar igual
             for (int i = 0; i < 2; i++)
             {
                 if (rng.Next(KeepEndOdds) == 0)
@@ -28,12 +27,11 @@ namespace PCG.Generation
         private static void TrimOneEnd(FloorPlan plan, Room hall, HouseSettings s,
                                        System.Random rng)
         {
-            Area corridor = hall.Parts[0];   // o corredor e sempre um retangulo so
+            Area corridor = hall.Parts[0];
             bool alongX = corridor.Width >= corridor.Height;
             int length = alongX ? corridor.Width : corridor.Height;
 
-            // o corredor nunca fica mais curto que um comodo minimo, e o
-            // pedaco cortado precisa ter um tamanho que sirva pra alguma coisa
+            // quanto da ponta cortar, corte minimo de 3 celulas, senao a sobra é inutil
             int maxCut = length - s.MinRoomSize;
 
             if (maxCut < s.MinCorridorCut)
@@ -50,17 +48,20 @@ namespace PCG.Generation
             else
                 corridor.Split(alongX, cut, out strip, out rest);
 
+            // um comodo encostado recebe essa piece
             Room receiver = FindReceiver(plan, strip, alongX);
 
             if (receiver == null)
-                return;   // ninguem pode receber o pedaco, o corredor fica como esta
+                return;
 
+            // encurta o corredor
             hall.Parts[0] = rest;
+
+            // o pedaco vira uma parte nova do comodo vizinho
             receiver.Absorb(strip);
         }
 
-        // quem recebe o pedaco: um comodo que encosta nele ao longo de todo
-        // o comprimento, de um dos lados do corredor. assim nao sobra buraco.
+        // acha um comodo que encosta na faixa doada inteira ao lado dela, dai o pedaço se cola sem deixar buraco
         private static Room FindReceiver(FloorPlan plan, Area strip, bool alongX)
         {
             foreach (Room room in plan.Rooms)

@@ -2,12 +2,10 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // a planta de uma casa: os comodos, quem encosta em quem e onde ficam as portas.
-    // e o que o gerador devolve e o que a unity le pra construir a cena.
     public class FloorPlan
     {
-        public Area Bounds;     // contorno externo da casa
-        public int Seed;        // semente que gerou esta planta
+        public Area Bounds;     // retangulo externo da casa
+        public int Seed;
 
         public List<Room> Rooms = new List<Room>();
 

@@ -1,9 +1,5 @@
 namespace PCG.Generation
 {
-    // um trecho reto de parede, com Length celulas a partir de Start.
-    // vertical: fica na coluna Line e corre no eixo Y.
-    // horizontal: fica na linha Line e corre no eixo X.
-    // Length zero significa "nao ha parede".
     public struct WallSpan
     {
         public bool Vertical;
@@ -19,7 +15,7 @@ namespace PCG.Generation
             Length = length;
         }
 
-        // o pedaco de parede do meio do trecho. e onde as portas sao abertas.
+        // o pedaco de parede do meio do trecho. e onde as portas sao abertas
         public WallKey Middle
         {
             get

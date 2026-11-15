@@ -2,9 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using PCG.Generation;
 
-// camada da unity: pede uma planta ao gerador e constroi a casa na cena.
-// toda a logica de geracao fica na pasta Generation, que e c# puro.
-// teclas: R gera outra casa, P salva um print.
+// le a planta gerada e constroi a casa na cena
 public class HouseBuilder : MonoBehaviour
 {
     public int seed = 42;
@@ -15,7 +13,8 @@ public class HouseBuilder : MonoBehaviour
     public float wallHeight = 2.7f;
     public float wallThickness = 0.1f;
 
-    private GenerationResult last;       // a ultima geracao, mostrada no painel
+    // dados da ultima geracao, mostrados na tela e no console
+    private GenerationResult last;
 
     void Start()
     {
@@ -24,21 +23,21 @@ public class HouseBuilder : MonoBehaviour
 
     void Update()
     {
-        // R gera uma casa nova com semente sorteada
+        // R gera uma casa nova com semente random
         if (Input.GetKeyDown(KeyCode.R))
         {
             seed = Random.Range(0, 999999);
             Build();
         }
 
-        // P salva um print
+        // P salva um print com a versao marcada no canto
         if (Input.GetKeyDown(KeyCode.P))
             StartCoroutine(TakeScreenshot());
     }
 
     void Build()
     {
-        // apaga a casa anterior
+        // apaga a casa anterior pra montar uma nova qnd aperta R
         foreach (Transform child in transform)
             Destroy(child.gameObject);
 
@@ -57,10 +56,11 @@ public class HouseBuilder : MonoBehaviour
                   + $"{plan.Doors.Count} portas | {last.Attempts} tentativas | "
                   + $"{last.Milliseconds:F2} ms | falhas: {last.FailureSummary()}");
 
+        // porta da rua
         if (!plan.Entrance.HasValue)
             Debug.LogWarning("sem entrada: nem sala nem corredor tocam a fachada");
 
-        // um comodo em L tem mais de uma parte, e cada parte ganha sua laje
+        // comodo pode ter mais de uma parte (formato em L)
         foreach (Room room in plan.Rooms)
             foreach (Area part in room.Parts)
                 CreateFloor(part, room.Type);
@@ -68,11 +68,10 @@ public class HouseBuilder : MonoBehaviour
         BuildWalls(plan);
     }
 
-    // laje fina cobrindo uma parte de um comodo, com a cor do tipo dele
+    // cria uma laje fina no lugar de uma parte do comodo. medidas em celulas.
     void CreateFloor(Area area, RoomType type)
     {
-        // a Area guarda o canto e a unity posiciona pelo centro,
-        // por isso soma metade da largura e metade da altura
+        // a Area guarda o canto, a unity posiciona pelo centro
         float centerX = (area.X + area.Width / 2f) * unitSize;
         float centerZ = (area.Y + area.Height / 2f) * unitSize;
 
@@ -82,9 +81,9 @@ public class HouseBuilder : MonoBehaviour
                   ColorFor(type));
     }
 
-    // levanta parede em toda linha da grade que separa dois comodos diferentes.
-    // fora da casa o mapa devolve Outside, que nao e igual a nenhum comodo,
-    // entao a fachada sai da mesma regra das paredes internas.
+    // varre a grade e poe parede onde duas celulas vizinhas
+    // pertencem a comodos diferentes, ou onde faz borda com a rua.
+    // todas as medidas aqui estao em celulas.
     void BuildWalls(FloorPlan plan)
     {
         CellMap map = new CellMap(plan);
@@ -104,9 +103,11 @@ public class HouseBuilder : MonoBehaviour
                     CreateWall(plan, new WallKey(false, x, y));
     }
 
-    // um pedaco de parede de 1 celula de comprimento. se ali for porta, fica o vao.
+    // cria um pedaco de parede. recebe tudo em celulas e converte
+    // pra metros aqui dentro, num lugar so.
     void CreateWall(FloorPlan plan, WallKey key)
     {
+        // essa celula de parede virou porta?
         if (plan.Doors.Contains(key))
             return;
 
@@ -137,6 +138,7 @@ public class HouseBuilder : MonoBehaviour
         box.GetComponent<Renderer>().material.color = color;
     }
 
+    // uma cor pra cada tipo
     Color ColorFor(RoomType type)
     {
         switch (type)
@@ -181,15 +183,15 @@ public class HouseBuilder : MonoBehaviour
         style.fontSize = 15;
         style.normal.textColor = Color.white;
 
-        // fundo escuro, pra dar leitura em cima de qualquer cor
+        // fundo escuro, pra ler em cima de qualquer cor
         GUI.Box(new Rect(8, 8, 320, lines.Count * 19 + 10), "");
 
         for (int i = 0; i < lines.Count; i++)
             GUI.Label(new Rect(14, 12 + i * 19, 400, 20), lines[i], style);
     }
 
-    // espera o quadro terminar de desenhar antes de capturar,
-    // senao o painel pode ficar de fora do print
+    // espera o frame terminar de desenhar antes de capturar,
+    // senao o overlay pode nao aparecer no print
     System.Collections.IEnumerator TakeScreenshot()
     {
         yield return new WaitForEndOfFrame();

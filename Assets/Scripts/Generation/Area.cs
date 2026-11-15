@@ -1,6 +1,6 @@
 namespace PCG.Generation
 {
-    // retangulo em coordenadas inteiras de celula. x,y e o canto superior esquerdo.
+    //retangulo em coordenadas inteiras
     public struct Area
     {
         public int X;
@@ -16,14 +16,15 @@ namespace PCG.Generation
             Height = height;
         }
 
-        // bordas opostas, calculadas na hora pra nunca ficarem desatualizadas
+        //bordas opostas, caalcula na hora
         public int Right => X + Width;
         public int Bottom => Y + Height;
 
-        // area em celulas, usada pra comparar o tamanho dos comodos
+        //area em celulas, usada p decidir ql comodo é o maior
         public int Size => Width * Height;
 
-        // os dois retangulos ocupam alguma celula em comum?
+        // dois retangulos se cruzam quando ha sobreposicao
+        // nos dois eixos ao mesmo tempo
         public bool Overlaps(Area other)
         {
             return X < other.Right && other.X < Right

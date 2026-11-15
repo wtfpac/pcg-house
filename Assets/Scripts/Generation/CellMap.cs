@@ -1,7 +1,7 @@
 namespace PCG.Generation
 {
-    // grade que diz, pra cada celula, a qual comodo ela pertence.
-    // serve pra achar onde vai parede: entre celulas de comodos diferentes.
+    // grade que diz, pra cada celula, a qual comodo ela pertence
+    // usamos pra achar onde vai parede: entre comodos diferentes
     public class CellMap
     {
         public const int Outside = -1;
@@ -21,8 +21,7 @@ namespace PCG.Generation
                 for (int y = 0; y < height; y++)
                     cells[x, y] = Outside;
 
-            // cada comodo pinta todas as suas partes com a propria
-            // posicao na lista plan.Rooms
+            // cada comodo pinta todas as suas partes com o proprio indice
             for (int i = 0; i < plan.Rooms.Count; i++)
                 foreach (Area part in plan.Rooms[i].Parts)
                     for (int x = part.X; x < part.Right; x++)
@@ -31,8 +30,7 @@ namespace PCG.Generation
                                 cells[x, y] = i;
         }
 
-        // devolve o comodo da celula, ou Outside se ela estiver fora da casa.
-        // aceitar coordenada fora da grade poupa quem chama de checar as bordas.
+        // devolve o comodo da celula, ou Outside se estiver fora da casa
         public int At(int x, int y)
         {
             return Inside(x, y) ? cells[x, y] : Outside;

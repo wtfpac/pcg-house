@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // decide o tipo de cada retangulo cortado pelo BSP, usando tamanho e vizinhanca.
-    // o corredor nao passa por aqui: ele ja nasce marcado no planner.
+    // decide o tipo dos comodos. o hall ja vem marcado pelo planner,
+    // entao aqui so nomeamos sala, cozinha, banheiro e quartos.
     public static class RoomLabeler
     {
         public static List<Room> Label(List<Area> areas, HouseSettings s)
@@ -15,20 +15,23 @@ namespace PCG.Generation
             foreach (Area area in areas)
                 rooms.Add(new Room(area, RoomType.Bedroom));
 
+            // sala: a mais conectada. empate vai pra maior.
             Room living = PickLiving(rooms, s.MinSharedWall);
             living.Type = RoomType.Living;
 
+            // banheiro: o menor dos que sobraram
             Room bathroom = SmallestBedroom(rooms, null, s.MinSharedWall);
 
             if (bathroom != null)
                 bathroom.Type = RoomType.Bathroom;
 
+            // cozinha: a maior das que sobraram, de preferencia vizinha da sala
             Room kitchen = PickKitchen(rooms, living, s.MinSharedWall);
 
             if (kitchen != null)
                 kitchen.Type = RoomType.Kitchen;
 
-            // casa grande ganha um segundo banheiro, nunca colado no primeiro
+            // segundo banheiro so em casa grande, e nunca colado no primeiro
             if (rooms.Count >= s.SecondBathroomAt)
             {
                 Room second = SmallestBedroom(rooms, bathroom, s.MinSharedWall);
@@ -40,8 +43,6 @@ namespace PCG.Generation
             return rooms;
         }
 
-        // sala: o comodo com mais vizinhos, porque e ela que distribui
-        // o acesso. no empate, o maior.
         private static Room PickLiving(List<Room> rooms, int minShared)
         {
             Room best = rooms[0];
@@ -61,7 +62,6 @@ namespace PCG.Generation
             return best;
         }
 
-        // cozinha: de preferencia vizinha da sala. entre as candidatas, a maior.
         private static Room PickKitchen(List<Room> rooms, Room living, int minShared)
         {
             Room best = null;
@@ -74,6 +74,7 @@ namespace PCG.Generation
 
                 bool touches = Adjacency.AreNeighbours(room, living, minShared);
 
+                // vizinha da sala ganha; entre duas vizinhas, a maior
                 bool better = best == null
                            || (touches && !bestTouches)
                            || (touches == bestTouches && room.Size > best.Size);

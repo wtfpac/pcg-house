@@ -3,13 +3,14 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // um comodo da casa. nasce como um retangulo so, mas pode ganhar
-    // pedacos dos vizinhos e ficar em L. por isso guarda uma lista de partes.
+    // um comodo da casa. pode ser composto por mais de um retangulo,
+    // o que permite plantas em L alem das retangulares.
     public class Room
     {
         public RoomType Type;
         public List<Area> Parts;
 
+        // construtor simples, pro caso comum de um retangulo so
         public Room(Area area, RoomType type)
         {
             Type = type;
@@ -65,7 +66,7 @@ namespace PCG.Generation
             return -1;
         }
 
-        // area total em celulas, somando todas as partes
+        // soma da area de todas as partes
         public int Size
         {
             get

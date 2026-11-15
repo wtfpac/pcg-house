@@ -2,10 +2,7 @@ using System;
 
 namespace PCG.Generation
 {
-    // o BSP corta comodos de tamanho parecido, entao o banheiro nasce do
-    // tamanho de um quarto. aqui ele e reduzido: uma fatia inteira e cortada
-    // de um dos lados e doada ao vizinho. o banheiro continua retangular;
-    // quem recebe a fatia pode ficar em L.
+    // encurta banheiros, doa celulas p comodos adjacentes
     public static class BathroomShrinker
     {
         public static void Shrink(FloorPlan plan, HouseSettings s)

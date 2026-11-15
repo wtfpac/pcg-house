@@ -10,7 +10,7 @@ namespace PCG.Generation
         public int Attempts;            // quantas plantas foram tentadas
         public double Milliseconds;     // tempo gasto gerando
 
-        // quantas vezes cada regra reprovou uma tentativa
+        // quantas vezes cada regra reprovou, nesta geracao
         public Dictionary<Failure, int> Failures = new Dictionary<Failure, int>();
 
         public GenerationResult(int seed)
@@ -28,7 +28,7 @@ namespace PCG.Generation
             Failures[failure]++;
         }
 
-        // resumo das falhas em texto, pro painel e o log. ex: "Circulation:2  Facade:1"
+        // resumo em texto das falhas desta geracao, pro overlay e o log
         public string FailureSummary()
         {
             if (Failures.Count == 0)

@@ -3,9 +3,8 @@ using System.Diagnostics;
 
 namespace PCG.Generation
 {
-    // o gerador em si. monta uma planta em etapas (corredor, BSP, tipos,
-    // ajustes) e testa contra as regras. se a planta for reprovada, tenta
-    // outra. essa estrategia se chama gerar e testar (generate-and-test).
+    // monta uma planta completa: reserva o corredor, corta o resto,
+    // nomeia e valida. tenta de novo se a planta nao passar nas regras
     public static class HousePlanner
     {
         // versao do algoritmo. subir sempre que a geracao mudar de comportamento,
@@ -24,8 +23,7 @@ namespace PCG.Generation
             {
                 result.Attempts = attempt + 1;
 
-                // cada tentativa usa uma semente derivada da original. assim a
-                // mesma semente de entrada sempre chega na mesma casa.
+                // semente derivada, mesma entrada = msm resultado
                 int trySeed = seed + attempt * 7919;
 
                 FloorPlan plan = BuildCandidate(s, seed, trySeed);
@@ -50,20 +48,17 @@ namespace PCG.Generation
             return result;
         }
 
-        // monta uma planta candidata. devolve null se o corredor nao couber.
         private static FloorPlan BuildCandidate(HouseSettings s, int seed, int trySeed)
         {
             // um unico gerador aleatorio por tentativa, usado por todas as etapas
             System.Random rng = new System.Random(trySeed);
             Area bounds = new Area(0, 0, s.Width, s.Height);
 
-            // 1. reserva a faixa do corredor, que divide a casa em duas regioes
             if (!PlaceCorridor(bounds, s, rng, out Area corridor,
                                out Area regionA, out Area regionB))
                 return null;
 
-            // 2. corta as duas regioes com BSP. cada uma recebe uma
-            //    quantidade de comodos proporcional a sua area.
+            // corta as duas regioes, proporcional ao tamanho de cada uma
             int totalRooms = rng.Next(s.MinRooms, s.MaxRooms + 1);
             int roomsA = ShareOf(regionA, regionB, totalRooms);
             int roomsB = totalRooms - roomsA;
@@ -72,13 +67,14 @@ namespace PCG.Generation
             areas.AddRange(BspSplitter.Split(regionA, roomsA, s.MinRoomSize, rng));
             areas.AddRange(BspSplitter.Split(regionB, roomsB, s.MinRoomSize, rng));
 
-            // 3. decide o tipo de cada comodo. o corredor ja entra marcado.
             FloorPlan plan = new FloorPlan(bounds, seed);
             plan.Rooms.Add(new Room(corridor, RoomType.Hall));
             plan.Rooms.AddRange(RoomLabeler.Label(areas, s));
 
-            // 4. ajustes de proporcao: corredor mais curto, banheiro menor
+            // tenta encurtar o corredor nas pontas
             CorridorTrimmer.Trim(plan, s, rng);
+
+            // banheiro de no maximo 20 celulas (5 m2), lado minimo de 4 (2 m)
             BathroomShrinker.Shrink(plan, s);
 
             return plan;
@@ -91,23 +87,21 @@ namespace PCG.Generation
         {
             corridor = regionA = regionB = bounds;
 
-            // alongX = o corredor corre no eixo X. o normal e ele seguir o lado
-            // mais comprido da casa. as vezes vai no outro sentido, desde que o
-            // lado comprido comporte o corredor mais um comodo de cada lado.
+            // orienta a faixa pelo lado mais comprido, mas as vezes inverte.
+            // so inverte se o outro sentido tambem comportar comodos dos dois lados.
             bool alongX = bounds.Width >= bounds.Height;
             int longSide = alongX ? bounds.Width : bounds.Height;
 
             if (longSide >= s.CorridorWidth + s.MinRoomSize * 2 && rng.Next(FlipOdds) == 0)
                 alongX = !alongX;
 
-            // "depth" e o lado que a faixa divide. precisa sobrar
-            // um comodo minimo de cada lado dela.
+            // precisa sobrar comodo dos dois lados da faixa
             int depth = alongX ? bounds.Height : bounds.Width;
             int minPos = s.MinRoomSize;
             int maxPos = depth - s.CorridorWidth - s.MinRoomSize;
 
             if (maxPos < minPos)
-                return false;
+                return false;   // casa estreita demais pra ter corredor
 
             int pos = rng.Next(minPos, maxPos + 1);
 
@@ -118,8 +112,7 @@ namespace PCG.Generation
             return true;
         }
 
-        // quantos comodos ficam na regiao A, proporcional a area dela.
-        // cada regiao recebe pelo menos um.
+        // divide os comodos entre as duas regioes conforme a area de cada uma
         private static int ShareOf(Area a, Area b, int total)
         {
             int share = (int)System.Math.Round((double)total * a.Size / (a.Size + b.Size));

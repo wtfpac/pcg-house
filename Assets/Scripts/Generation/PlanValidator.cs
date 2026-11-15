@@ -1,10 +1,9 @@
 namespace PCG.Generation
 {
-    // as regras espaciais do projeto. cada metodo publico e uma regra que pode
-    // ser testada sozinha; o Check roda todas e diz qual reprovou a planta.
+    // REGRAS ESPACIAIS
     public static class PlanValidator
     {
-        // devolve a primeira regra violada, ou Failure.None se a planta e valida
+        // roda todas as regras e diz qual falhou primeiro
         public static Failure Check(FloorPlan plan, HouseSettings s)
         {
             if (!NoGaps(plan))
@@ -25,7 +24,7 @@ namespace PCG.Generation
             return Failure.None;
         }
 
-        // regra 1: nenhuma celula dentro da casa fica sem comodo
+        // regra 1: nenhuma celula dentro da casa pode ficar sem comodo
         public static bool NoGaps(FloorPlan plan)
         {
             CellMap map = new CellMap(plan);
@@ -38,7 +37,7 @@ namespace PCG.Generation
             return true;
         }
 
-        // regra 2: nenhum comodo invade o espaco de outro
+        // regra 2: nenhuma parte de um comodo invade a de outro
         public static bool NoOverlap(FloorPlan plan)
         {
             for (int i = 0; i < plan.Rooms.Count; i++)
@@ -51,8 +50,8 @@ namespace PCG.Generation
             return true;
         }
 
-        // regra 3: todo comodo encosta na fachada, pra poder ter janela.
-        // o corredor e a excecao.
+        // regra 3: todo comodo encosta em parede externa, pra poder ter janela.
+        // o hall e excecao: corredor nao precisa de janela.
         public static bool EveryRoomTouchesFacade(FloorPlan plan)
         {
             foreach (Room room in plan.Rooms)
@@ -62,8 +61,7 @@ namespace PCG.Generation
             return true;
         }
 
-        // regra 4: todo comodo encosta na sala ou no corredor.
-        // e o que garante acesso sem atravessar outro comodo.
+        // regra 4: todo comodo encosta em algum comodo de circulacao
         public static bool EveryRoomTouchesCirculation(FloorPlan plan, int minShared)
         {
             foreach (Room room in plan.Rooms)
@@ -73,14 +71,13 @@ namespace PCG.Generation
             return true;
         }
 
-        // regra 5: sala e corredor se encostam. sem isso a casa
-        // ficaria partida em duas metades sem ligacao.
+        // regra 5: os comodos de circulacao estao ligados entre si
         public static bool CirculationIsConnected(FloorPlan plan, int minShared)
         {
             int count = plan.CountOf(RoomType.Living) + plan.CountOf(RoomType.Hall);
 
             if (count <= 1)
-                return true;   // com um comodo de circulacao so, nao ha o que ligar
+                return true;
 
             foreach (Room room in plan.Rooms)
                 if (room.IsCirculation && !TouchesCirculation(plan, room, minShared))
@@ -89,7 +86,7 @@ namespace PCG.Generation
             return true;
         }
 
-        // o comodo tem parede externa? basta uma das partes estar na borda da casa.
+        // basta uma das partes encostar na fachada
         public static bool TouchesFacade(FloorPlan plan, Room room)
         {
             foreach (Area part in room.Parts)
@@ -99,7 +96,6 @@ namespace PCG.Generation
             return false;
         }
 
-        // o comodo e vizinho de algum outro comodo de circulacao?
         public static bool TouchesCirculation(FloorPlan plan, Room room, int minShared)
         {
             foreach (Room other in plan.Rooms)
