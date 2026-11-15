@@ -23,7 +23,7 @@ class Program
         int seed;
 
         if (args.Length == 0 || !int.TryParse(args[0], out seed))
-            seed = new Random().Next(0, 999999);
+            seed = new Random().Next(HousePlanner.MinSeed, HousePlanner.MaxSeed + 1);
 
         GenerationResult result = HousePlanner.Generate(settings, seed);
 

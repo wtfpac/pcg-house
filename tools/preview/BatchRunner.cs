@@ -41,7 +41,8 @@ namespace PCG.Preview
 
             while (usedSeeds.Count < count)
             {
-                int seed = picker.Next(0, int.MaxValue);
+                // o limite de cima do Next nao entra no sorteio, por isso o + 1
+                int seed = picker.Next(HousePlanner.MinSeed, HousePlanner.MaxSeed + 1);
 
                 if (!usedSeeds.Add(seed))
                     continue;   // ja saiu antes, sorteia outra

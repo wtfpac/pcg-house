@@ -3,15 +3,15 @@ using System.Diagnostics;
 
 namespace PCG.Generation
 {
-    // monta uma planta completa: reserva o corredor, corta o resto,
-    // nomeia e valida. tenta de novo se a planta nao passar nas regras
+    // monta uma planta completa: reserva o corredor, corta o resto nomeia e valida
     public static class HousePlanner
     {
-        // versao do algoritmo. subir sempre que a geracao mudar de comportamento,
-        // pra saber qual codigo produziu cada print e cada tabela de resultados.
-        public const string Version = "0.5";
+        public const string Version = "0.6";
 
-        // 1 em cada 3 vezes o corredor vai no sentido mais curto da casa
+        // faixa das sementes sorteadas 900 milhoes
+        public const int MinSeed = 100000000;
+        public const int MaxSeed = 999999999;
+
         private const int FlipOdds = 3;
 
         public static GenerationResult Generate(HouseSettings s, int seed)
@@ -23,7 +23,6 @@ namespace PCG.Generation
             {
                 result.Attempts = attempt + 1;
 
-                // semente derivada, mesma entrada = msm resultado
                 int trySeed = seed + attempt * 7919;
 
                 FloorPlan plan = BuildCandidate(s, seed, trySeed);
@@ -50,7 +49,6 @@ namespace PCG.Generation
 
         private static FloorPlan BuildCandidate(HouseSettings s, int seed, int trySeed)
         {
-            // um unico gerador aleatorio por tentativa, usado por todas as etapas
             System.Random rng = new System.Random(trySeed);
             Area bounds = new Area(0, 0, s.Width, s.Height);
 
@@ -80,22 +78,18 @@ namespace PCG.Generation
             return plan;
         }
 
-        // sorteia a posicao da faixa do corredor e separa a casa em
-        // regiao A | corredor | regiao B. devolve false se nao houver espaco.
+        // sorteia a posicao da faixa do corredor
         private static bool PlaceCorridor(Area bounds, HouseSettings s, System.Random rng,
                                           out Area corridor, out Area regionA, out Area regionB)
         {
             corridor = regionA = regionB = bounds;
 
-            // orienta a faixa pelo lado mais comprido, mas as vezes inverte.
-            // so inverte se o outro sentido tambem comportar comodos dos dois lados.
             bool alongX = bounds.Width >= bounds.Height;
             int longSide = alongX ? bounds.Width : bounds.Height;
 
             if (longSide >= s.CorridorWidth + s.MinRoomSize * 2 && rng.Next(FlipOdds) == 0)
                 alongX = !alongX;
 
-            // precisa sobrar comodo dos dois lados da faixa
             int depth = alongX ? bounds.Height : bounds.Width;
             int minPos = s.MinRoomSize;
             int maxPos = depth - s.CorridorWidth - s.MinRoomSize;
