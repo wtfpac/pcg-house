@@ -7,19 +7,17 @@ using PCG.Generation;
 public class HouseBuilder : MonoBehaviour
 {
     public int seed = 123456789;
+    public bool fixedSeed = false;
     public HouseSettings settings = new HouseSettings();
 
     [Header("Escala e medidas, em metros")]
     public float unitSize = 0.5f;        // qts metros vale uma celula
     public float wallHeight = 2.5f;
     public float wallThickness = 0.1f;
-    public float doorHeight = 2.1f;
+    public float doorHeight = 2.0f;
     public float ceilingThickness = 0.1f;
 
-    [Header("Porta e teto")]
-    [Range(1, 2)]
-    public int doorWidthCells = 1;
-    public bool showCeiling = true;      // T Liga e desliga teto
+    private bool showCeiling = false;      // T Liga e desliga teto
 
     private static readonly Color WallColor = new Color(0.90f, 0.88f, 0.84f);
     private static readonly Color CeilingColor = new Color(0.96f, 0.96f, 0.94f);
@@ -30,13 +28,30 @@ public class HouseBuilder : MonoBehaviour
 
     private GameObject ceiling;
 
+    private bool rebuild;
+
     void Start()
     {
+        if (!fixedSeed)
+            seed = Random.Range(HousePlanner.MinSeed, HousePlanner.MaxSeed + 1);
+
         Build();
+    }
+
+    void OnValidate()
+    {
+        if (Application.isPlaying)
+            rebuild = true;
     }
 
     void Update()
     {
+        if (rebuild)
+        {
+            rebuild = false;
+            Build();
+        }
+
         Keyboard keyboard = Keyboard.current;
 
         // sem teclado conectado nao tem o que ler
@@ -88,7 +103,7 @@ public class HouseBuilder : MonoBehaviour
         if (!plan.Entrance.HasValue)
             Debug.LogWarning("sem entrada: nem sala nem corredor tocam a fachada");
 
-        openings = OpenDoors(plan);
+        openings = plan.OpenWalls();
 
         // comodo pode ter mais de uma parte (formato em L)
         foreach (Room room in plan.Rooms)
@@ -97,24 +112,6 @@ public class HouseBuilder : MonoBehaviour
 
         BuildWalls(plan);
         BuildCeiling(plan);
-    }
-
-    HashSet<WallKey> OpenDoors(FloorPlan plan)
-    {
-        HashSet<WallKey> open = new HashSet<WallKey>(plan.Doors);
-
-        if (doorWidthCells < 2)
-            return open;
-
-        foreach (WallKey door in plan.Doors)
-        {
-            if (door.Vertical)
-                open.Add(new WallKey(true, door.X, door.Y - 1));
-            else
-                open.Add(new WallKey(false, door.X - 1, door.Y));
-        }
-
-        return open;
     }
 
     void CreateFloor(Area area, RoomType type)
@@ -136,27 +133,56 @@ public class HouseBuilder : MonoBehaviour
         int height = plan.Bounds.Height;
 
         for (int x = 0; x <= width; x++)
-            for (int y = 0; y < height; y++)
-                if (map.At(x - 1, y) != map.At(x, y))
-                    CreateWall(new WallKey(true, x, y));
+            BuildLine(true, x, height, y => map.At(x - 1, y) != map.At(x, y));
 
-        for (int x = 0; x < width; x++)
-            for (int y = 0; y <= height; y++)
-                if (map.At(x, y - 1) != map.At(x, y))
-                    CreateWall(new WallKey(false, x, y));
+        for (int y = 0; y <= height; y++)
+            BuildLine(false, y, width, x => map.At(x, y - 1) != map.At(x, y));
+    }
+
+    void BuildLine(bool vertical, int line, int length, System.Func<int, bool> hasWall)
+    {
+        int start = 0;
+        int state = 0;
+
+        for (int i = 0; i <= length; i++)
+        {
+            int next = i < length ? WallState(vertical, line, i, hasWall) : 0;
+
+            if (next == state)
+                continue;
+
+            if (state != 0)
+                CreateWall(vertical, line, start, i - start, state == 2);
+
+            start = i;
+            state = next;
+        }
+    }
+
+    int WallState(bool vertical, int line, int i, System.Func<int, bool> hasWall)
+    {
+        if (!hasWall(i))
+            return 0;
+
+        WallKey key = vertical ? new WallKey(true, line, i) : new WallKey(false, i, line);
+
+        return openings.Contains(key) ? 2 : 1;
     }
 
     // cria um pedaco de parede. recebe tudo em celulas e converte pra metros aqui dentro, num lugar so
-    void CreateWall(WallKey key)
+    void CreateWall(bool vertical, int line, int start, int length, bool open)
     {
-        // a chave marca o inicio do pedaco. o centro fica meia celula adiante, no sentido em que a parede corre
-        float centerX = (key.Vertical ? key.X : key.X + 0.5f) * unitSize;
-        float centerZ = (key.Vertical ? key.Y + 0.5f : key.Y) * unitSize;
+        float along = (start + length / 2f) * unitSize;
+        float across = line * unitSize;
 
-        float sizeX = key.Vertical ? wallThickness : unitSize;
-        float sizeZ = key.Vertical ? unitSize : wallThickness;
+        float centerX = vertical ? across : along;
+        float centerZ = vertical ? along : across;
 
-        if (openings.Contains(key))
+        float size = length * unitSize + wallThickness;
+        float sizeX = vertical ? wallThickness : size;
+        float sizeZ = vertical ? size : wallThickness;
+
+        if (open)
         {
             float lintel = wallHeight - doorHeight;
 
@@ -230,6 +256,9 @@ public class HouseBuilder : MonoBehaviour
         {
             FloorPlan plan = last.Plan;
 
+            lines.Add("casa: " + plan.Bounds.Width + "x" + plan.Bounds.Height + " celulas ("
+                      + (plan.Bounds.Width * unitSize).ToString("F1") + " x "
+                      + (plan.Bounds.Height * unitSize).ToString("F1") + " m)");
             lines.Add("comodos: " + plan.RoomCount);
             lines.Add("quartos: " + plan.CountOf(RoomType.Bedroom)
                       + "   banheiros: " + plan.CountOf(RoomType.Bathroom));

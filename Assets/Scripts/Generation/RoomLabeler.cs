@@ -16,17 +16,17 @@ namespace PCG.Generation
                 rooms.Add(new Room(area, RoomType.Bedroom));
 
             // sala: a mais conectada. empate vai pra maior.
-            Room living = PickLiving(rooms, s.MinSharedWall);
+            Room living = PickLiving(rooms, s.DoorWall);
             living.Type = RoomType.Living;
 
             // banheiro: o menor dos que sobraram
-            Room bathroom = SmallestBedroom(rooms, null, s.MinSharedWall);
+            Room bathroom = SmallestBedroom(rooms, null, s.DoorWall);
 
             if (bathroom != null)
                 bathroom.Type = RoomType.Bathroom;
 
             // cozinha: a maior das que sobraram, de preferencia vizinha da sala
-            Room kitchen = PickKitchen(rooms, living, s.MinSharedWall);
+            Room kitchen = PickKitchen(rooms, living, s.DoorWall);
 
             if (kitchen != null)
                 kitchen.Type = RoomType.Kitchen;
@@ -34,7 +34,7 @@ namespace PCG.Generation
             // segundo banheiro so em casa grande, e nunca colado no primeiro
             if (rooms.Count >= s.SecondBathroomAt)
             {
-                Room second = SmallestBedroom(rooms, bathroom, s.MinSharedWall);
+                Room second = SmallestBedroom(rooms, bathroom, s.DoorWall);
 
                 if (second != null)
                     second.Type = RoomType.Bathroom;

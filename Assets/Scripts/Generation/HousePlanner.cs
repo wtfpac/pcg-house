@@ -19,13 +19,18 @@ namespace PCG.Generation
             GenerationResult result = new GenerationResult(seed);
             Stopwatch watch = Stopwatch.StartNew();
 
+            System.Random sizeRng = new System.Random(unchecked(seed * 486187739 + 7));
+            result.Width = sizeRng.Next(s.MinWidth, s.MaxWidth + 1);
+            result.Height = sizeRng.Next(s.MinHeight, s.MaxHeight + 1);
+            Area bounds = new Area(0, 0, result.Width, result.Height);
+
             for (int attempt = 0; attempt < s.MaxAttempts; attempt++)
             {
                 result.Attempts = attempt + 1;
 
                 int trySeed = seed + attempt * 7919;
 
-                FloorPlan plan = BuildCandidate(s, seed, trySeed);
+                FloorPlan plan = BuildCandidate(s, bounds, seed, trySeed);
 
                 Failure failure = plan == null
                     ? Failure.Geometry
@@ -47,10 +52,9 @@ namespace PCG.Generation
             return result;
         }
 
-        private static FloorPlan BuildCandidate(HouseSettings s, int seed, int trySeed)
+        private static FloorPlan BuildCandidate(HouseSettings s, Area bounds, int seed, int trySeed)
         {
             System.Random rng = new System.Random(trySeed);
-            Area bounds = new Area(0, 0, s.Width, s.Height);
 
             if (!PlaceCorridor(bounds, s, rng, out Area corridor,
                                out Area regionA, out Area regionB))
@@ -120,9 +124,9 @@ namespace PCG.Generation
         // com a planta aprovada: monta o grafo e abre as portas
         private static void PlaceDoors(FloorPlan plan, HouseSettings s)
         {
-            plan.Edges = RoomGraph.Build(plan.Rooms, s.MinSharedWall);
-            plan.Doors = DoorPlacer.Place(plan);
-            plan.Entrance = EntrancePlacer.Place(plan);
+            plan.Edges = RoomGraph.Build(plan.Rooms, s.DoorWall);
+            plan.Doors = DoorPlacer.Place(plan, s.DoorWidth);
+            plan.Entrance = EntrancePlacer.Place(plan, s.DoorWidth);
 
             if (plan.Entrance.HasValue)
                 plan.Doors.Add(plan.Entrance.Value);

@@ -4,7 +4,7 @@ namespace PCG.Generation
     // se ela nao tocar fachada, tenta o corredor
     public static class EntrancePlacer
     {
-        public static WallKey? Place(FloorPlan plan)
+        public static WallSpan? Place(FloorPlan plan, int doorWidth)
         {
             // primeiro tenta a sala, que e o normal em casa terrea
             WallSpan facade = LongestFacade(plan, plan.Find(RoomType.Living));
@@ -17,7 +17,7 @@ namespace PCG.Generation
                 return null;
 
             // pega a do meio, pra nao cair bem no canto
-            return facade.Middle;
+            return facade.Centered(doorWidth);
         }
 
         private static WallSpan LongestFacade(FloorPlan plan, Room room)

@@ -39,7 +39,7 @@ class Program
 
         FloorPlan plan = result.Plan;
 
-        Console.WriteLine($"{plan.RoomCount} comodos | {plan.Edges.Count} conexoes | "
+        Console.WriteLine($"casa {plan.Bounds.Width}x{plan.Bounds.Height} | {plan.RoomCount} comodos | {plan.Edges.Count} conexoes | "
                           + $"{plan.Doors.Count} portas");
         Console.WriteLine($"quartos: {plan.CountOf(RoomType.Bedroom)} | "
                           + $"banheiros: {plan.CountOf(RoomType.Bathroom)}");
@@ -71,8 +71,8 @@ class Program
                 return;
             }
 
-            settings.Width = width;
-            settings.Height = height;
+            settings.MinWidth = settings.MaxWidth = width;
+            settings.MinHeight = settings.MaxHeight = height;
         }
 
         BatchRunner.Run(count, settings);

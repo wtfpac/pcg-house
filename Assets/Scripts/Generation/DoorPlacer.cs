@@ -9,9 +9,9 @@ namespace PCG.Generation
         private const int HallBonus = 3000;
         private const int CirculationBonus = 1000;
 
-        public static HashSet<WallKey> Place(FloorPlan plan)
+        public static List<WallSpan> Place(FloorPlan plan, int doorWidth)
         {
-            HashSet<WallKey> doors = new HashSet<WallKey>();
+            List<WallSpan> doors = new List<WallSpan>();
             int[] used = new int[plan.Rooms.Count];
 
             // comodos privados tem preferencia d porta no corredor
@@ -21,7 +21,7 @@ namespace PCG.Generation
                 if (IsFull(plan, used, edge.A) || IsFull(plan, used, edge.B))
                     continue;
 
-                doors.Add(edge.Wall.Middle);
+                doors.Add(edge.Wall.Centered(doorWidth));
 
                 used[edge.A]++;
                 used[edge.B]++;

@@ -4,14 +4,17 @@ namespace PCG.Generation
     public class HouseSettings
     {
         // tamanho da casa
-        public int Width = 20;
-        public int Height = 16;
+        public int MinWidth = 18;
+        public int MaxWidth = 24;
+        public int MinHeight = 14;
+        public int MaxHeight = 18;
 
         // comodos
         public int MinRoomSize = 5;
         public int MinRooms = 5;
         public int MaxRooms = 7;
         public int MinSharedWall = 2;
+        public int DoorWidth = 3;
 
         // corredor
         public int CorridorWidth = 2;
@@ -23,5 +26,7 @@ namespace PCG.Generation
         public int SecondBathroomAt = 6;
 
         public int MaxAttempts = 60;
+
+        public int DoorWall => System.Math.Max(MinSharedWall, DoorWidth);
     }
 }

@@ -21,7 +21,7 @@ namespace PCG.Generation
         }
 
         // tenta os quatro lados e aplica o primeiro corte que der certo.
-        // lados: 0 esquerda, 1 direita, 2 cima, 3 baixo.
+        // lados: 0 esquerda, 1 direita, 2 cima, 3 baixo
         private static bool CutOneSide(FloorPlan plan, Room bathroom, HouseSettings s)
         {
             Area before = bathroom.Parts[0];
@@ -121,7 +121,7 @@ namespace PCG.Generation
                 return false;
 
             // "depth" e o quanto a fatia se afasta da parede em comum. se for
-            // mais que o dobro da abertura, vira um braco comprido e estreito.
+            // mais que o dobro da abertura, vira um braco comprido e estreito
             int depth = wall.Vertical ? slab.Width : slab.Height;
 
             return depth <= wall.Length * 2;
@@ -131,7 +131,7 @@ namespace PCG.Generation
         // acesso pela circulacao e parede externa pra janela
         private static bool StillValid(FloorPlan plan, Room bathroom, HouseSettings s)
         {
-            return PlanValidator.TouchesCirculation(plan, bathroom, s.MinSharedWall)
+            return PlanValidator.TouchesCirculation(plan, bathroom, s.DoorWall)
                 && PlanValidator.TouchesFacade(plan, bathroom);
         }
     }

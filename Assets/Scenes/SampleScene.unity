@@ -412,14 +412,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 296cf17aee390334ba4a4551ff7c9d77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HouseBuilder
-  version: 1.0
-  seed: 42
-  houseWidth: 20
-  houseHeight: 16
-  minRoomSize: 5
+  seed: 999999999
+  settings:
+    Width: 20
+    Height: 16
+    MinRoomSize: 5
+    MinRooms: 5
+    MaxRooms: 7
+    MinSharedWall: 2
+    CorridorWidth: 2
+    MinCorridorCut: 3
+    MaxBathroomArea: 20
+    MinBathroomSide: 4
+    SecondBathroomAt: 6
+    MaxAttempts: 60
   unitSize: 0.5
-  wallHeight: 2.7
+  wallHeight: 2.4
   wallThickness: 0.1
+  doorHeight: 2.1
+  ceilingThickness: 0.1
+  doorWidthCells: 1
+  showCeiling: 1
 --- !u!4 &575343906
 Transform:
   m_ObjectHideFlags: 0

@@ -13,10 +13,10 @@ namespace PCG.Generation
         public List<RoomGraph.Edge> Edges = new List<RoomGraph.Edge>();
 
         // pedacos de parede que ficam abertos. inclui a porta da rua.
-        public HashSet<WallKey> Doors = new HashSet<WallKey>();
+        public List<WallSpan> Doors = new List<WallSpan>();
 
         // a porta da rua, ou null se nenhum comodo de circulacao tocar a fachada
-        public WallKey? Entrance;
+        public WallSpan? Entrance;
 
         public FloorPlan(Area bounds, int seed)
         {
@@ -25,6 +25,17 @@ namespace PCG.Generation
         }
 
         public int RoomCount => Rooms.Count;
+
+        public HashSet<WallKey> OpenWalls()
+        {
+            HashSet<WallKey> open = new HashSet<WallKey>();
+
+            foreach (WallSpan door in Doors)
+                foreach (WallKey key in door.Keys)
+                    open.Add(key);
+
+            return open;
+        }
 
         // quantos comodos de um tipo a casa tem
         public int CountOf(RoomType type)

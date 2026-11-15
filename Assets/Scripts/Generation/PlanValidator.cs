@@ -15,10 +15,10 @@ namespace PCG.Generation
             if (!EveryRoomTouchesFacade(plan))
                 return Failure.Facade;
 
-            if (!EveryRoomTouchesCirculation(plan, s.MinSharedWall))
+            if (!EveryRoomTouchesCirculation(plan, s.DoorWall))
                 return Failure.Circulation;
 
-            if (!CirculationIsConnected(plan, s.MinSharedWall))
+            if (!CirculationIsConnected(plan, s.DoorWall))
                 return Failure.CirculationSplit;
 
             return Failure.None;

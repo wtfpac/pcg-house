@@ -13,13 +13,13 @@ namespace PCG.Preview
             if (!plan.Entrance.HasValue)
                 return "nenhuma";
 
-            WallKey door = plan.Entrance.Value;
+            WallSpan door = plan.Entrance.Value;
             Area b = plan.Bounds;
 
-            if (door.Vertical && door.X == b.X) return "oeste";
-            if (door.Vertical && door.X == b.Right) return "leste";
-            if (!door.Vertical && door.Y == b.Y) return "norte";
-            if (!door.Vertical && door.Y == b.Bottom) return "sul";
+            if (door.Vertical && door.Line == b.X) return "oeste";
+            if (door.Vertical && door.Line == b.Right) return "leste";
+            if (!door.Vertical && door.Line == b.Y) return "norte";
+            if (!door.Vertical && door.Line == b.Bottom) return "sul";
 
             return "interna";
         }
@@ -43,6 +43,7 @@ namespace PCG.Preview
         {
             CellMap map = new CellMap(plan);
             StringBuilder sb = new StringBuilder();
+            sb.Append(plan.Bounds.Width).Append('x').Append(plan.Bounds.Height).Append(':');
 
             for (int y = 0; y < plan.Bounds.Height; y++)
                 for (int x = 0; x < plan.Bounds.Width; x++)

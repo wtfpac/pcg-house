@@ -6,6 +6,8 @@ namespace PCG.Generation
     public class GenerationResult
     {
         public int Seed;
+        public int Width;
+        public int Height;
         public FloorPlan Plan;          // null se nenhuma tentativa passou nas regras
         public int Attempts;            // quantas plantas foram tentadas
         public double Milliseconds;     // tempo gasto gerando

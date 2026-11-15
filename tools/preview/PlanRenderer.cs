@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using PCG.Generation;
 
@@ -9,6 +10,7 @@ namespace PCG.Preview
         public static string Render(FloorPlan plan)
         {
             CellMap map = new CellMap(plan);
+            HashSet<WallKey> open = plan.OpenWalls();
             int width = plan.Bounds.Width;
             int height = plan.Bounds.Height;
 
@@ -20,7 +22,7 @@ namespace PCG.Preview
                 for (int x = 0; x < width; x++)
                 {
                     bool wall = map.At(x, y - 1) != map.At(x, y)
-                             && !plan.Doors.Contains(new WallKey(false, x, y));
+                             && !open.Contains(new WallKey(false, x, y));
 
                     sb.Append('+');
                     sb.Append(wall ? "--" : "  ");
@@ -36,7 +38,7 @@ namespace PCG.Preview
                 for (int x = 0; x <= width; x++)
                 {
                     bool wall = map.At(x - 1, y) != map.At(x, y)
-                             && !plan.Doors.Contains(new WallKey(true, x, y));
+                             && !open.Contains(new WallKey(true, x, y));
 
                     sb.Append(wall ? '|' : ' ');
 

@@ -90,7 +90,7 @@ namespace PCG.Preview
             CultureInfo br = CultureInfo.GetCultureInfo("pt-BR");
             List<string> cols = new List<string>
             {
-                HousePlanner.Version, s.Width.ToString(), s.Height.ToString(),
+                HousePlanner.Version, r.Width.ToString(), r.Height.ToString(),
                 r.Seed.ToString(), r.Success ? "1" : "0", r.Attempts.ToString(),
                 r.Milliseconds.ToString("F4", br)
             };
@@ -130,12 +130,20 @@ namespace PCG.Preview
 
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string file = Path.Combine("results",
-                $"bateria_v{HousePlanner.Version}_{s.Width}x{s.Height}_{count}_{stamp}.csv");
+                $"bateria_v{HousePlanner.Version}_{SizeLabel(s)}_{count}_{stamp}.csv");
 
             // utf-8 com BOM, senao o excel embaralha os acentos
             File.WriteAllText(file, csv.ToString(), new UTF8Encoding(true));
 
             return file;
+        }
+
+        private static string SizeLabel(HouseSettings s)
+        {
+            string width = s.MinWidth == s.MaxWidth ? s.MinWidth.ToString() : s.MinWidth + "-" + s.MaxWidth;
+            string height = s.MinHeight == s.MaxHeight ? s.MinHeight.ToString() : s.MinHeight + "-" + s.MaxHeight;
+
+            return width + "x" + height;
         }
 
         // acumula os numeros pro resumo do console
@@ -179,7 +187,7 @@ namespace PCG.Preview
 
             public void Print(int count, HouseSettings s, double seconds, string file)
             {
-                Console.WriteLine($"=== bateria v{HousePlanner.Version} | casa {s.Width}x{s.Height} | {count} sementes sorteadas ===");
+                Console.WriteLine($"=== bateria v{HousePlanner.Version} | casa {SizeLabel(s)} | {count} sementes sorteadas ===");
                 Console.WriteLine($"validas: {valid} ({Pct(valid, count)})");
 
                 if (valid > 0)
