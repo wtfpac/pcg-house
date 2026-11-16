@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace PCG.Generation
 {
@@ -21,7 +22,7 @@ namespace PCG.Generation
         }
 
         // tenta os quatro lados e aplica o primeiro corte que der certo.
-        // lados: 0 esquerda, 1 direita, 2 cima, 3 baixo
+        // lados: 0 esquerda, 1 direita, 2 cima, 3 baixo.
         private static bool CutOneSide(FloorPlan plan, Room bathroom, HouseSettings s)
         {
             Area before = bathroom.Parts[0];
@@ -87,7 +88,7 @@ namespace PCG.Generation
         {
             bool thin = Math.Min(slab.Width, slab.Height) < 2;
 
-            foreach (Room room in plan.Rooms)
+            foreach (Room room in plan.Rooms.OrderBy(r => r.Size).ToList())
             {
                 // corredor e banheiro nao recebem espaco
                 if (room == bathroom || room.Type == RoomType.Hall
@@ -121,7 +122,7 @@ namespace PCG.Generation
                 return false;
 
             // "depth" e o quanto a fatia se afasta da parede em comum. se for
-            // mais que o dobro da abertura, vira um braco comprido e estreito
+            // mais que o dobro da abertura, vira um braco comprido e estreito.
             int depth = wall.Vertical ? slab.Width : slab.Height;
 
             return depth <= wall.Length * 2;

@@ -9,9 +9,10 @@ namespace PCG.Generation
         private const int HallBonus = 3000;
         private const int CirculationBonus = 1000;
 
-        public static List<WallSpan> Place(FloorPlan plan, int doorWidth)
+        public static List<WallSpan> Place(FloorPlan plan, HouseSettings s, bool openLivingHall)
         {
             List<WallSpan> doors = new List<WallSpan>();
+            plan.Openings = new List<WallSpan>();
             int[] used = new int[plan.Rooms.Count];
 
             // comodos privados tem preferencia d porta no corredor
@@ -21,13 +22,41 @@ namespace PCG.Generation
                 if (IsFull(plan, used, edge.A) || IsFull(plan, used, edge.B))
                     continue;
 
-                doors.Add(edge.Wall.Centered(doorWidth));
+                if (openLivingHall && IsLivingHall(plan, edge) && edge.Wall.Length > s.DoorWidth)
+                    plan.Openings.AddRange(AllWalls(plan.Rooms[edge.A], plan.Rooms[edge.B]));
+                else
+                    doors.Add(edge.Wall.Centered(s.DoorWidth));
 
                 used[edge.A]++;
                 used[edge.B]++;
             }
 
             return doors;
+        }
+
+        private static List<WallSpan> AllWalls(Room a, Room b)
+        {
+            List<WallSpan> walls = new List<WallSpan>();
+
+            foreach (Area partA in a.Parts)
+                foreach (Area partB in b.Parts)
+                {
+                    WallSpan wall = Adjacency.Wall(partA, partB);
+
+                    if (wall.Length > 0)
+                        walls.Add(wall);
+                }
+
+            return walls;
+        }
+
+        private static bool IsLivingHall(FloorPlan plan, RoomGraph.Edge edge)
+        {
+            RoomType a = plan.Rooms[edge.A].Type;
+            RoomType b = plan.Rooms[edge.B].Type;
+
+            return (a == RoomType.Living && b == RoomType.Hall)
+                || (a == RoomType.Hall && b == RoomType.Living);
         }
 
         private static int Priority(FloorPlan plan, RoomGraph.Edge edge)

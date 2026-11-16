@@ -9,6 +9,7 @@ namespace PCG.Generation
         Overlap,
         Facade,
         Circulation,
-        CirculationSplit 
+        CirculationSplit,
+        RoomSize
     }
 }

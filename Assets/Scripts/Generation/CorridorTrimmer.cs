@@ -62,7 +62,7 @@ namespace PCG.Generation
         }
 
         // acha um comodo que encosta na faixa doada inteira ao lado dela, dai o pedaço se cola sem deixar buraco
-        private static Room FindReceiver(FloorPlan plan, Area strip, bool alongX)
+        internal static Room FindReceiver(FloorPlan plan, Area strip, bool alongX)
         {
             foreach (Room room in plan.Rooms)
             {

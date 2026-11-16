@@ -15,6 +15,8 @@ namespace PCG.Generation
         // pedacos de parede que ficam abertos. inclui a porta da rua.
         public List<WallSpan> Doors = new List<WallSpan>();
 
+        public List<WallSpan> Openings = new List<WallSpan>();
+
         // a porta da rua, ou null se nenhum comodo de circulacao tocar a fachada
         public WallSpan? Entrance;
 
@@ -35,6 +37,17 @@ namespace PCG.Generation
                     open.Add(key);
 
             return open;
+        }
+
+        public HashSet<WallKey> RemovedWalls()
+        {
+            HashSet<WallKey> removed = new HashSet<WallKey>();
+
+            foreach (WallSpan opening in Openings)
+                foreach (WallKey key in opening.Keys)
+                    removed.Add(key);
+
+            return removed;
         }
 
         // quantos comodos de um tipo a casa tem

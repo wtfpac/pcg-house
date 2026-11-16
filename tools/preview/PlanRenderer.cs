@@ -11,6 +11,7 @@ namespace PCG.Preview
         {
             CellMap map = new CellMap(plan);
             HashSet<WallKey> open = plan.OpenWalls();
+            open.UnionWith(plan.RemovedWalls());
             int width = plan.Bounds.Width;
             int height = plan.Bounds.Height;
 

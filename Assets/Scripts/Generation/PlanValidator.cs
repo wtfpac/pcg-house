@@ -21,7 +21,19 @@ namespace PCG.Generation
             if (!CirculationIsConnected(plan, s.DoorWall))
                 return Failure.CirculationSplit;
 
+            if (!NoOversizedRoom(plan, s.MaxRoomCells))
+                return Failure.RoomSize;
+
             return Failure.None;
+        }
+
+        public static bool NoOversizedRoom(FloorPlan plan, int maxCells)
+        {
+            foreach (Room room in plan.Rooms)
+                if (room.Type != RoomType.Living && room.Type != RoomType.Hall && room.Size > maxCells)
+                    return false;
+
+            return true;
         }
 
         // regra 1: nenhuma celula dentro da casa pode ficar sem comodo

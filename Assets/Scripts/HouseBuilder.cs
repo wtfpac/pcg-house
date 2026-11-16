@@ -26,6 +26,8 @@ public class HouseBuilder : MonoBehaviour
 
     private HashSet<WallKey> openings = new HashSet<WallKey>();
 
+    private HashSet<WallKey> removed = new HashSet<WallKey>();
+
     private GameObject ceiling;
 
     private bool rebuild;
@@ -104,6 +106,7 @@ public class HouseBuilder : MonoBehaviour
             Debug.LogWarning("sem entrada: nem sala nem corredor tocam a fachada");
 
         openings = plan.OpenWalls();
+        removed = plan.RemovedWalls();
 
         // comodo pode ter mais de uma parte (formato em L)
         foreach (Room room in plan.Rooms)
@@ -165,6 +168,9 @@ public class HouseBuilder : MonoBehaviour
             return 0;
 
         WallKey key = vertical ? new WallKey(true, line, i) : new WallKey(false, i, line);
+
+        if (removed.Contains(key))
+            return 0;
 
         return openings.Contains(key) ? 2 : 1;
     }

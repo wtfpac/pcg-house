@@ -16,7 +16,7 @@ namespace PCG.Preview
         private static readonly Failure[] Rules =
         {
             Failure.Geometry, Failure.Gap, Failure.Overlap,
-            Failure.Facade, Failure.Circulation, Failure.CirculationSplit
+            Failure.Facade, Failure.Circulation, Failure.CirculationSplit, Failure.RoomSize
         };
 
         public static void Run(int count, HouseSettings settings)
@@ -76,8 +76,8 @@ namespace PCG.Preview
 
             cols.AddRange(new[]
             {
-                "comodos", "quartos", "banheiros", "maior_banheiro_celulas",
-                "portas", "conexoes", "entrada", "repetida"
+                "comodos", "quartos", "banheiros", "corredor", "maior_banheiro_celulas",
+                "portas", "sala_aberta", "conexoes", "entrada", "repetida"
             });
 
             return string.Join(";", cols);
@@ -108,8 +108,10 @@ namespace PCG.Preview
                 cols.Add(p.RoomCount.ToString());
                 cols.Add(p.CountOf(RoomType.Bedroom).ToString());
                 cols.Add(p.CountOf(RoomType.Bathroom).ToString());
+                cols.Add(p.CountOf(RoomType.Hall).ToString());
                 cols.Add(PlanInfo.LargestBathroom(p).ToString());
                 cols.Add(p.Doors.Count.ToString());
+                cols.Add(p.Openings.Count > 0 ? "1" : "0");
                 cols.Add(p.Edges.Count.ToString());
                 cols.Add(PlanInfo.EntranceSide(p));
                 cols.Add(repeated ? "1" : "0");
@@ -117,7 +119,7 @@ namespace PCG.Preview
             else
             {
                 // planta invalida: as colunas da casa ficam vazias
-                cols.AddRange(new[] { "", "", "", "", "", "", "", "" });
+                cols.AddRange(new[] { "", "", "", "", "", "", "", "", "", "" });
             }
 
             return string.Join(";", cols);
@@ -151,6 +153,7 @@ namespace PCG.Preview
         {
             private int valid;
             private int repeated;
+            private int withHall;
             private int attempts;
             private int maxAttempts;
             private double millis;
@@ -179,6 +182,9 @@ namespace PCG.Preview
                 if (isRepeated)
                     repeated++;
 
+                if (r.Plan.CountOf(RoomType.Hall) > 0)
+                    withHall++;
+
                 Bump(roomCounts, r.Plan.RoomCount, 1);
                 Bump(bedrooms, r.Plan.CountOf(RoomType.Bedroom), 1);
                 Bump(bathrooms, r.Plan.CountOf(RoomType.Bathroom), 1);
@@ -194,6 +200,7 @@ namespace PCG.Preview
                 {
                     Console.WriteLine($"tentativas por planta valida: media {(double)attempts / valid:F2}, maxima {maxAttempts}");
                     Console.WriteLine($"plantas distintas: {valid - repeated} de {valid} ({Pct(valid - repeated, valid)})");
+                    Console.WriteLine($"casas com corredor: {withHall} de {valid} ({Pct(withHall, valid)})");
                 }
 
                 Console.WriteLine($"tempo por casa: media {millis / count:F3} ms, pior {worstMillis:F3} ms");

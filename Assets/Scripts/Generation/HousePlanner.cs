@@ -23,6 +23,7 @@ namespace PCG.Generation
             result.Width = sizeRng.Next(s.MinWidth, s.MaxWidth + 1);
             result.Height = sizeRng.Next(s.MinHeight, s.MaxHeight + 1);
             Area bounds = new Area(0, 0, result.Width, result.Height);
+            bool openLivingHall = sizeRng.NextDouble() < s.OpenLivingHallChance;
 
             for (int attempt = 0; attempt < s.MaxAttempts; attempt++)
             {
@@ -38,7 +39,19 @@ namespace PCG.Generation
 
                 if (failure == Failure.None)
                 {
-                    PlaceDoors(plan, s);
+                    PlaceDoors(plan, s, openLivingHall);
+
+                    if (CorridorPruner.Prune(plan, s))
+                    {
+                        failure = PlanValidator.Check(plan, s);
+
+                        if (failure == Failure.None)
+                            PlaceDoors(plan, s, openLivingHall);
+                    }
+                }
+
+                if (failure == Failure.None)
+                {
                     result.Plan = plan;
                     break;
                 }
@@ -61,7 +74,8 @@ namespace PCG.Generation
                 return null;
 
             // corta as duas regioes, proporcional ao tamanho de cada uma
-            int totalRooms = rng.Next(s.MinRooms, s.MaxRooms + 1);
+            int byArea = (int)System.Math.Round(bounds.Size / (double)s.CellsPerRoom) + rng.Next(-1, 2);
+            int totalRooms = System.Math.Max(s.MinRooms, System.Math.Min(s.MaxRooms, byArea));
             int roomsA = ShareOf(regionA, regionB, totalRooms);
             int roomsB = totalRooms - roomsA;
 
@@ -122,10 +136,10 @@ namespace PCG.Generation
         }
 
         // com a planta aprovada: monta o grafo e abre as portas
-        private static void PlaceDoors(FloorPlan plan, HouseSettings s)
+        private static void PlaceDoors(FloorPlan plan, HouseSettings s, bool openLivingHall)
         {
             plan.Edges = RoomGraph.Build(plan.Rooms, s.DoorWall);
-            plan.Doors = DoorPlacer.Place(plan, s.DoorWidth);
+            plan.Doors = DoorPlacer.Place(plan, s, openLivingHall);
             plan.Entrance = EntrancePlacer.Place(plan, s.DoorWidth);
 
             if (plan.Entrance.HasValue)

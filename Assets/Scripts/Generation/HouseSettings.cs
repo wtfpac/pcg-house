@@ -4,21 +4,25 @@ namespace PCG.Generation
     public class HouseSettings
     {
         // tamanho da casa
-        public int MinWidth = 18;
-        public int MaxWidth = 24;
-        public int MinHeight = 14;
-        public int MaxHeight = 18;
+        public int MinWidth = 20;
+        public int MaxWidth = 26;
+        public int MinHeight = 16;
+        public int MaxHeight = 20;
 
         // comodos
         public int MinRoomSize = 5;
         public int MinRooms = 5;
-        public int MaxRooms = 7;
+        public int MaxRooms = 10;
+        public int CellsPerRoom = 55;
+        public int MaxRoomCells = 120;
         public int MinSharedWall = 2;
-        public int DoorWidth = 3;
+        public int DoorWidth = 2;
+        public float OpenLivingHallChance = 0.5f;
 
         // corredor
         public int CorridorWidth = 2;
         public int MinCorridorCut = 3;
+        public int MinCorridorRooms = 3;
 
         // banheiro
         public int MaxBathroomArea = 20;
