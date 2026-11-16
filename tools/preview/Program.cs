@@ -40,7 +40,7 @@ class Program
         FloorPlan plan = result.Plan;
 
         Console.WriteLine($"casa {plan.Bounds.Width}x{plan.Bounds.Height} | {plan.RoomCount} comodos | {plan.Edges.Count} conexoes | "
-                          + $"{plan.Doors.Count} portas | sala aberta: {(plan.Openings.Count > 0 ? "sim" : "nao")}");
+                          + $"{plan.Doors.Count} portas | sala aberta: {(plan.LivingOpen ? "sim" : "nao")}");
         Console.WriteLine($"quartos: {plan.CountOf(RoomType.Bedroom)} | "
                           + $"banheiros: {plan.CountOf(RoomType.Bathroom)}");
         Console.WriteLine($"entrada: {PlanInfo.EntranceSide(plan)}");

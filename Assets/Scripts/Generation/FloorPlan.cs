@@ -17,6 +17,8 @@ namespace PCG.Generation
 
         public List<WallSpan> Openings = new List<WallSpan>();
 
+        public bool LivingOpen;
+
         // a porta da rua, ou null se nenhum comodo de circulacao tocar a fachada
         public WallSpan? Entrance;
 

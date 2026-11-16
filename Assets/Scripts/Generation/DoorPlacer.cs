@@ -13,6 +13,7 @@ namespace PCG.Generation
         {
             List<WallSpan> doors = new List<WallSpan>();
             plan.Openings = new List<WallSpan>();
+            plan.LivingOpen = false;
             int[] used = new int[plan.Rooms.Count];
 
             // comodos privados tem preferencia d porta no corredor
@@ -23,7 +24,10 @@ namespace PCG.Generation
                     continue;
 
                 if (openLivingHall && IsLivingHall(plan, edge) && edge.Wall.Length > s.DoorWidth)
+                {
                     plan.Openings.AddRange(AllWalls(plan.Rooms[edge.A], plan.Rooms[edge.B]));
+                    plan.LivingOpen = true;
+                }
                 else
                     doors.Add(edge.Wall.Centered(s.DoorWidth));
 
@@ -31,7 +35,60 @@ namespace PCG.Generation
                 used[edge.B]++;
             }
 
+            OpenSmallGaps(plan);
+
             return doors;
+        }
+
+        private static void OpenSmallGaps(FloorPlan plan)
+        {
+            Room living = plan.Find(RoomType.Living);
+            Room hall = plan.Find(RoomType.Hall);
+
+            if (living == null || hall == null)
+                return;
+
+            int li = plan.Rooms.IndexOf(living);
+            int hi = plan.Rooms.IndexOf(hall);
+            CellMap map = new CellMap(plan);
+
+            for (int x = 0; x <= plan.Bounds.Width; x++)
+                OpenSingleRuns(plan, true, x, plan.Bounds.Height,
+                               y => Between(map.At(x - 1, y), map.At(x, y), li, hi));
+
+            for (int y = 0; y <= plan.Bounds.Height; y++)
+                OpenSingleRuns(plan, false, y, plan.Bounds.Width,
+                               x => Between(map.At(x, y - 1), map.At(x, y), li, hi));
+        }
+
+        private static void OpenSingleRuns(FloorPlan plan, bool vertical, int line, int length,
+                                           System.Func<int, bool> isWall)
+        {
+            int run = 0;
+
+            for (int i = 0; i <= length; i++)
+            {
+                if (i < length && isWall(i))
+                {
+                    run++;
+                    continue;
+                }
+
+                if (run == 1)
+                {
+                    WallSpan gap = new WallSpan(vertical, line, i - 1, 1);
+
+                    if (!plan.Openings.Contains(gap))
+                        plan.Openings.Add(gap);
+                }
+
+                run = 0;
+            }
+        }
+
+        private static bool Between(int a, int b, int first, int second)
+        {
+            return (a == first && b == second) || (a == second && b == first);
         }
 
         private static List<WallSpan> AllWalls(Room a, Room b)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using PCG.Generation;
 
@@ -31,6 +32,9 @@ namespace PCG.Preview
             StringBuilder csv = new StringBuilder();
             csv.AppendLine(Header());
 
+            StringBuilder roomsCsv = new StringBuilder();
+            roomsCsv.AppendLine(RoomHeader());
+
             // aquecimento: as primeiras geracoes sao lentas porque o c# ainda
             // esta compilando o codigo. elas nao entram na medicao.
             for (int i = 0; i < 50; i++)
@@ -55,13 +59,16 @@ namespace PCG.Preview
                     repeated = !seenPlans.Add(PlanInfo.Signature(result.Plan));
 
                 csv.AppendLine(Row(result, settings, repeated));
+                AppendRoomRows(roomsCsv, result);
                 summary.Add(result, repeated);
             }
 
             total.Stop();
 
-            string file = Save(csv, count, settings);
+            string file = Save(csv, count, settings, "casas");
+            string roomsFile = Save(roomsCsv, count, settings, "comodos");
             summary.Print(count, settings, total.Elapsed.TotalSeconds, file);
+            Console.WriteLine("csv dos comodos salvo em: " + Path.GetFullPath(roomsFile));
         }
 
         private static string Header()
@@ -74,11 +81,7 @@ namespace PCG.Preview
             foreach (Failure rule in Rules)
                 cols.Add("rejeicoes_" + rule);
 
-            cols.AddRange(new[]
-            {
-                "comodos", "quartos", "banheiros", "corredor", "maior_banheiro_celulas",
-                "portas", "sala_aberta", "conexoes", "entrada", "repetida"
-            });
+            cols.AddRange(HouseColumns);
 
             return string.Join(";", cols);
         }
@@ -105,34 +108,121 @@ namespace PCG.Preview
             if (r.Success)
             {
                 FloorPlan p = r.Plan;
+
+                List<Room> closed = p.Rooms.Where(x => !x.IsCirculation).ToList();
+                List<Room> bedrooms = p.Rooms.Where(x => x.Type == RoomType.Bedroom).ToList();
+                List<Room> bathrooms = p.Rooms.Where(x => x.Type == RoomType.Bathroom).ToList();
+                int[] depths = PlanInfo.Depths(p);
+
+                cols.Add(M2(p.Bounds.Size, br));
                 cols.Add(p.RoomCount.ToString());
-                cols.Add(p.CountOf(RoomType.Bedroom).ToString());
-                cols.Add(p.CountOf(RoomType.Bathroom).ToString());
+                cols.Add(bedrooms.Count.ToString());
+                cols.Add(bathrooms.Count.ToString());
                 cols.Add(p.CountOf(RoomType.Hall).ToString());
-                cols.Add(PlanInfo.LargestBathroom(p).ToString());
+                cols.Add(p.LivingOpen ? "1" : "0");
+                cols.Add(M2(SizeOf(p, RoomType.Living), br));
+                cols.Add(M2(SizeOf(p, RoomType.Kitchen), br));
+                cols.Add(M2(SizeOf(p, RoomType.Hall), br));
+                cols.Add(bedrooms.Count > 0 ? M2(bedrooms.Min(x => x.Size), br) : "");
+                cols.Add(bedrooms.Count > 0 ? M2(bedrooms.Average(x => x.Size), br) : "");
+                cols.Add(bedrooms.Count > 0 ? M2(bedrooms.Max(x => x.Size), br) : "");
+                cols.Add(bathrooms.Count > 0 ? M2(bathrooms.Min(x => x.Size), br) : "");
+                cols.Add(bathrooms.Count > 0 ? M2(bathrooms.Max(x => x.Size), br) : "");
+                cols.Add(M2(closed.Max(x => x.Size), br));
+                cols.Add(M2(closed.Min(x => x.Size), br));
+                cols.Add(p.Rooms.Count(x => x.Parts.Count > 1).ToString());
+                cols.Add(p.Rooms.Where(x => x.Type != RoomType.Hall).Max(x => PlanInfo.Proportion(x)).ToString("F2", br));
                 cols.Add(p.Doors.Count.ToString());
-                cols.Add(p.Openings.Count > 0 ? "1" : "0");
+                cols.Add(p.Openings.Count.ToString());
                 cols.Add(p.Edges.Count.ToString());
                 cols.Add(PlanInfo.EntranceSide(p));
+                cols.Add(depths.Max().ToString());
+                cols.Add(depths.Average().ToString("F2", br));
                 cols.Add(repeated ? "1" : "0");
             }
             else
             {
                 // planta invalida: as colunas da casa ficam vazias
-                cols.AddRange(new[] { "", "", "", "", "", "", "", "", "", "" });
+                cols.AddRange(HouseColumns.Select(x => ""));
             }
 
             return string.Join(";", cols);
         }
 
+        private static readonly string[] HouseColumns =
+        {
+            "area_m2", "comodos", "quartos", "banheiros", "corredor", "sala_aberta",
+            "sala_m2", "cozinha_m2", "corredor_m2",
+            "quarto_min_m2", "quarto_media_m2", "quarto_max_m2",
+            "banheiro_min_m2", "banheiro_max_m2",
+            "maior_comodo_fechado_m2", "menor_comodo_fechado_m2",
+            "comodos_em_l", "maior_proporcao",
+            "portas", "aberturas", "conexoes", "entrada",
+            "profundidade_max", "profundidade_media", "repetida"
+        };
+
+        private static string RoomHeader()
+        {
+            return string.Join(";", new[]
+            {
+                "versao", "semente", "largura_casa", "altura_casa", "comodo", "tipo", "area_m2",
+                "partes", "caixa_largura_m", "caixa_altura_m", "proporcao",
+                "portas", "vizinhos", "fachada", "profundidade"
+            });
+        }
+
+        private static void AppendRoomRows(StringBuilder csv, GenerationResult r)
+        {
+            if (!r.Success)
+                return;
+
+            CultureInfo br = CultureInfo.GetCultureInfo("pt-BR");
+            FloorPlan p = r.Plan;
+
+            int[] doors = PlanInfo.DoorsPerRoom(p);
+            int[] neighbours = PlanInfo.NeighboursPerRoom(p);
+            int[] depths = PlanInfo.Depths(p);
+
+            for (int i = 0; i < p.Rooms.Count; i++)
+            {
+                Room room = p.Rooms[i];
+                Area box = PlanInfo.Box(room);
+
+                csv.AppendLine(string.Join(";", new[]
+                {
+                    HousePlanner.Version, r.Seed.ToString(), r.Width.ToString(), r.Height.ToString(),
+                    i.ToString(), PlanInfo.TypeName(room.Type), M2(room.Size, br),
+                    room.Parts.Count.ToString(),
+                    (box.Width * PlanInfo.CellSize).ToString("F1", br),
+                    (box.Height * PlanInfo.CellSize).ToString("F1", br),
+                    PlanInfo.Proportion(room).ToString("F2", br),
+                    doors[i].ToString(), neighbours[i].ToString(),
+                    PlanValidator.TouchesFacade(p, room) ? "1" : "0",
+                    depths[i].ToString()
+                }));
+            }
+        }
+
+        private static int SizeOf(FloorPlan plan, RoomType type)
+        {
+            Room room = plan.Find(type);
+
+            return room == null ? 0 : room.Size;
+        }
+
+        private static string M2(double cells, CultureInfo br)
+        {
+            return (cells * PlanInfo.CellSize * PlanInfo.CellSize).ToString("F2", br);
+        }
+
         // grava em results/, com versao, tamanho e horario no nome
-        private static string Save(StringBuilder csv, int count, HouseSettings s)
+        private static string Save(StringBuilder csv, int count, HouseSettings s, string kind)
         {
             Directory.CreateDirectory("results");
 
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string file = Path.Combine("results",
-                $"bateria_v{HousePlanner.Version}_{SizeLabel(s)}_{count}_{stamp}.csv");
+                $"bateria_v{HousePlanner.Version}_{SizeLabel(s)}_{count}_{stamp}_{kind}.csv");
 
             // utf-8 com BOM, senao o excel embaralha os acentos
             File.WriteAllText(file, csv.ToString(), new UTF8Encoding(true));
@@ -154,6 +244,11 @@ namespace PCG.Preview
             private int valid;
             private int repeated;
             private int withHall;
+            private int livingOpen;
+            private double area;
+            private double bedroomArea;
+            private int bedroomCount;
+            private double depthMax;
             private int attempts;
             private int maxAttempts;
             private double millis;
@@ -185,6 +280,19 @@ namespace PCG.Preview
                 if (r.Plan.CountOf(RoomType.Hall) > 0)
                     withHall++;
 
+                if (r.Plan.LivingOpen)
+                    livingOpen++;
+
+                area += PlanInfo.SquareMeters(r.Plan.Bounds.Size);
+                depthMax += PlanInfo.Depths(r.Plan).Max();
+
+                foreach (Room room in r.Plan.Rooms)
+                    if (room.Type == RoomType.Bedroom)
+                    {
+                        bedroomArea += PlanInfo.SquareMeters(room.Size);
+                        bedroomCount++;
+                    }
+
                 Bump(roomCounts, r.Plan.RoomCount, 1);
                 Bump(bedrooms, r.Plan.CountOf(RoomType.Bedroom), 1);
                 Bump(bathrooms, r.Plan.CountOf(RoomType.Bathroom), 1);
@@ -201,6 +309,9 @@ namespace PCG.Preview
                     Console.WriteLine($"tentativas por planta valida: media {(double)attempts / valid:F2}, maxima {maxAttempts}");
                     Console.WriteLine($"plantas distintas: {valid - repeated} de {valid} ({Pct(valid - repeated, valid)})");
                     Console.WriteLine($"casas com corredor: {withHall} de {valid} ({Pct(withHall, valid)})");
+                    Console.WriteLine($"sala aberta pro corredor: {livingOpen} de {valid} ({Pct(livingOpen, valid)})");
+                    Console.WriteLine($"area media da casa: {area / valid:F1} m2 | quarto medio: {(bedroomCount > 0 ? bedroomArea / bedroomCount : 0):F1} m2");
+                    Console.WriteLine($"profundidade maxima media: {depthMax / valid:F2} portas a partir da rua");
                 }
 
                 Console.WriteLine($"tempo por casa: media {millis / count:F3} ms, pior {worstMillis:F3} ms");
