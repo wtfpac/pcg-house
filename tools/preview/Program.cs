@@ -2,7 +2,7 @@ using System;
 using PCG.Generation;
 using PCG.Preview;
 
-// visualizador de console. usa os mesmos arquivos da pasta Generation do projeto unity.
+// visualizador de console
 //   dotnet run                 -> uma casa com semente sorteada
 //   dotnet run 42              -> a casa da semente 42
 //   dotnet run batch           -> bateria de 1000 casas, gera um csv em results/
