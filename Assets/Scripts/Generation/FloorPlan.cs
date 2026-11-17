@@ -4,15 +4,15 @@ namespace PCG.Generation
 {
     public class FloorPlan
     {
-        public Area Bounds;     // retangulo externo da casa
+        public Area Bounds;
         public int Seed;
 
         public List<Room> Rooms = new List<Room>();
 
-        // grafo de adjacencia: cada aresta liga dois comodos vizinhos
+        // grafo de adjacencia cada aresta liga dois blocos
         public List<RoomGraph.Edge> Edges = new List<RoomGraph.Edge>();
 
-        // pedacos de parede que ficam abertos. inclui a porta da rua.
+        // pedacos de parede que ficam abertos
         public List<WallSpan> Doors = new List<WallSpan>();
 
         public List<WallSpan> Openings = new List<WallSpan>();

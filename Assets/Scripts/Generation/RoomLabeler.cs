@@ -2,14 +2,12 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // decide o tipo dos comodos. o hall ja vem marcado pelo planner,
-    // entao aqui so nomeamos sala, cozinha, banheiro e quartos.
+    // decide o tipo dos comodos. o hall ja vem marcado pelo planner
     public static class RoomLabeler
     {
         public static List<Room> Label(List<Area> areas, HouseSettings s)
         {
-            // todo mundo comeca como quarto. os outros tipos sao escolhidos
-            // um a um, sempre entre os que ainda sao quarto.
+            // todo mundo comeca como quarto. os outros tipos sao escolhidos um a um, sempre entre os que ainda sao quartos
             List<Room> rooms = new List<Room>();
 
             foreach (Area area in areas)
@@ -90,7 +88,7 @@ namespace PCG.Generation
         }
 
         // o menor comodo que ainda e quarto. se "awayFrom" for informado,
-        // descarta quem encosta nele. devolve null se nao sobrar ninguem.
+        // descarta quem encosta nele. devolve null se nao sobrar ninguem
         private static Room SmallestBedroom(List<Room> rooms, Room awayFrom, int minShared)
         {
             Room best = null;

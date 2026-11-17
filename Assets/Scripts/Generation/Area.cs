@@ -23,8 +23,7 @@ namespace PCG.Generation
         //area em celulas, usada p decidir ql comodo é o maior
         public int Size => Width * Height;
 
-        // dois retangulos se cruzam quando ha sobreposicao
-        // nos dois eixos ao mesmo tempo
+        // dois retangulos se cruzam quando ha sobreposicao nos dois eixos ao mesmo tempo
         public bool Overlaps(Area other)
         {
             return X < other.Right && other.X < Right
@@ -32,16 +31,13 @@ namespace PCG.Generation
         }
 
         // encosta em alguma borda do retangulo de fora?
-        // com o contorno da casa, responde se o comodo toca a fachada.
         public bool TouchesEdgeOf(Area outer)
         {
             return X == outer.X || Right == outer.Right
                 || Y == outer.Y || Bottom == outer.Bottom;
         }
 
-        // corta o retangulo em dois pedacos, sem sobra nem buraco.
-        // alongX = true: o corte fica na posicao "at" do eixo X e separa esquerda e direita.
-        // alongX = false: fica na posicao "at" do eixo Y e separa cima e baixo.
+        // corta o retangulo em dois pedacos, sem sobras ou buracos
         public void Split(bool alongX, int at, out Area first, out Area second)
         {
             if (alongX)

@@ -1,7 +1,6 @@
 namespace PCG.Generation
 {
-    // encurta o corredor nas pontas e doa o espaco liberado ao comodo
-    // vizinho. o comodo pode ficar em L, por isso guardamos em Parts.
+    // encurta o corredor nas pontas e doa o espaco liberado ao comodo vizinho. o comodo pode ficar em L
     public static class CorridorTrimmer
     {
         // 1 em cada 4 vezes a ponta fica inteira, pra nem toda casa sair igual
@@ -48,7 +47,7 @@ namespace PCG.Generation
             else
                 corridor.Split(alongX, cut, out strip, out rest);
 
-            // um comodo encostado recebe essa piece
+            // um comodo encostado recebe essa ppeça
             Room receiver = FindReceiver(plan, strip, alongX);
 
             if (receiver == null)
@@ -66,7 +65,7 @@ namespace PCG.Generation
         {
             foreach (Room room in plan.Rooms)
             {
-                // banheiro nao recebe: ele precisa ficar pequeno
+                // banheiro nao recebe tamanho extra
                 if (room.Type == RoomType.Hall || room.Type == RoomType.Bathroom)
                     continue;
 
@@ -74,8 +73,6 @@ namespace PCG.Generation
                 {
                     WallSpan wall = Adjacency.Wall(part, strip);
 
-                    // corredor deitado (alongX) tem os vizinhos em cima e embaixo,
-                    // entao a parede em comum precisa ser horizontal. e vice-versa.
                     if (wall.Vertical != alongX && wall.CoversSideOf(strip))
                         return room;
                 }

@@ -113,11 +113,10 @@ namespace PCG.Generation
             int maxPos = depth - s.CorridorWidth - s.MinRoomSize;
 
             if (maxPos < minPos)
-                return false;   // casa estreita demais pra ter corredor
+                return false;
 
             int pos = rng.Next(minPos, maxPos + 1);
 
-            // corredor no eixo X significa cortes no eixo Y, e vice-versa
             bounds.Split(!alongX, pos, out regionA, out Area rest);
             rest.Split(!alongX, s.CorridorWidth, out corridor, out regionB);
 

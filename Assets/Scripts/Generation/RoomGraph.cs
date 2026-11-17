@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // descobre quais comodos encostam em quais.
-    // funciona com comodos compostos por varias partes.
+    // descobre quais comodos encostam em quais
+    // funciona com comodos compostos por varias partes
     public static class RoomGraph
     {
         public struct Edge

@@ -13,23 +13,21 @@ namespace PCG.Generation
                 if (room.Type != RoomType.Bathroom)
                     continue;
 
-                // corta um lado por vez, ate caber na area alvo
-                // ou ate nenhum lado aceitar mais corte
+                // corta um lado por vez, ate caber na area alvo ou ate nenhum lado aceitar mais corte
                 while (room.Size > s.MaxBathroomArea && CutOneSide(plan, room, s))
                 {
                 }
             }
         }
 
-        // tenta os quatro lados e aplica o primeiro corte que der certo.
-        // lados: 0 esquerda, 1 direita, 2 cima, 3 baixo.
+        // lados: 0 esquerda, 1 direita, 2 cima, 3 baixo
         private static bool CutOneSide(FloorPlan plan, Room bathroom, HouseSettings s)
         {
             Area before = bathroom.Parts[0];
 
             for (int side = 0; side < 4; side++)
             {
-                // comeca pelo corte ideal e vai diminuindo ate achar um que sirva
+                // corta o primeiro q achar e for ideal
                 for (int thickness = IdealCut(before, side, s); thickness > 0; thickness--)
                 {
                     Slice(before, side, thickness, out Area slab, out Area rest);
@@ -39,8 +37,6 @@ namespace PCG.Generation
                     if (receiver == null)
                         continue;
 
-                    // o banheiro menor ainda precisa obedecer as regras da casa.
-                    // testa com o retangulo novo e desfaz se nao servir.
                     bathroom.Parts[0] = rest;
 
                     if (StillValid(plan, bathroom, s))
@@ -56,8 +52,7 @@ namespace PCG.Generation
             return false;
         }
 
-        // quanto tirar desse lado pra area fechar no alvo,
-        // sem deixar o banheiro mais estreito que o lado minimo
+        // quanto tirar desse lado pra area fechar no alvo, sem deixar o banheiro mais estreito que o lado minimo
         private static int IdealCut(Area area, int side, HouseSettings s)
         {
             bool alongX = side < 2;
@@ -69,7 +64,7 @@ namespace PCG.Generation
             return length - target;
         }
 
-        // separa uma fatia do lado pedido. "rest" e o que sobra pro banheiro.
+        // separa uma fatia do lado pedido. "rest" é o que sobra pro banheiro
         private static void Slice(Area area, int side, int thickness,
                                   out Area slab, out Area rest)
         {
@@ -82,8 +77,7 @@ namespace PCG.Generation
             }
         }
 
-        // quem recebe a fatia: um comodo que encosta num lado inteiro dela,
-        // pra ela se encaixar sem deixar buraco
+        // procurar qm vai receber a fatia
         private static Room FindReceiver(FloorPlan plan, Room bathroom, Area slab)
         {
             bool thin = Math.Min(slab.Width, slab.Height) < 2;
@@ -95,8 +89,7 @@ namespace PCG.Generation
                     || room.Type == RoomType.Bathroom)
                     continue;
 
-                // fatia de 1 celula so serve se completar um retangulo com
-                // o vizinho. solta, viraria um degrau inutil na parede dele.
+                // fatia de 1 celula so serve se completar um retangulo com o vizinho
                 if (thin)
                 {
                     if (room.FormsRectangleWith(slab))
@@ -121,15 +114,11 @@ namespace PCG.Generation
             if (!wall.CoversSideOf(slab))
                 return false;
 
-            // "depth" e o quanto a fatia se afasta da parede em comum. se for
-            // mais que o dobro da abertura, vira um braco comprido e estreito.
             int depth = wall.Vertical ? slab.Width : slab.Height;
 
             return depth <= wall.Length * 2;
         }
 
-        // as mesmas regras que o validador cobra de qualquer comodo:
-        // acesso pela circulacao e parede externa pra janela
         private static bool StillValid(FloorPlan plan, Room bathroom, HouseSettings s)
         {
             return PlanValidator.TouchesCirculation(plan, bathroom, s.DoorWall)

@@ -3,8 +3,7 @@ using System.Collections.Generic;
 
 namespace PCG.Generation
 {
-    // um comodo da casa. pode ser composto por mais de um retangulo,
-    // o que permite plantas em L alem das retangulares.
+    // um comodo da casa. pode ser composto por mais de um retangulo, permite alguns comodos serem gerados em L ou outros formats
     public class Room
     {
         public RoomType Type;
@@ -23,9 +22,7 @@ namespace PCG.Generation
         // quarto e banheiro sao os comodos privativos
         public bool IsPrivate => Type == RoomType.Bedroom || Type == RoomType.Bathroom;
 
-        // junta um pedaco de espaco ao comodo. se ele completar um retangulo
-        // com uma parte que ja existe, as duas viram uma so. senao entra
-        // como parte nova, e o comodo fica em L.
+        // junta um pedaco de espaco ao comodo. se ele completar um retangulo  com uma parte que ja existe, as duas viram uma só
         public void Absorb(Area piece)
         {
             int partner = FindRectanglePartner(piece);
@@ -45,14 +42,12 @@ namespace PCG.Generation
             Parts[partner] = new Area(x, y, right - x, bottom - y);
         }
 
-        // o pedaco, junto com alguma parte do comodo, forma um retangulo perfeito?
         public bool FormsRectangleWith(Area piece)
         {
             return FindRectanglePartner(piece) >= 0;
         }
 
-        // posicao da parte que forma um retangulo com o pedaco, ou -1.
-        // isso acontece quando a parede entre os dois cobre um lado inteiro de cada um.
+        // posicao da parte que forma um retangulo com o pedaco, ou -1
         private int FindRectanglePartner(Area piece)
         {
             for (int i = 0; i < Parts.Count; i++)

@@ -5,7 +5,7 @@ namespace PCG.Generation
 {
     public static class DoorPlacer
     {
-        // pesos da ordenacao. a parede em comum soma no final, como desempate.
+        // pesos da ordenacao. a parede em comum soma no fina como deesempate
         private const int HallBonus = 3000;
         private const int CirculationBonus = 1000;
 
@@ -16,8 +16,7 @@ namespace PCG.Generation
             plan.LivingOpen = false;
             int[] used = new int[plan.Rooms.Count];
 
-            // comodos privados tem preferencia d porta no corredor
-            // depois vem qualquer ligacao com circulacao
+            // comodos privados tem preferencia d porta no corredor depois vem qualquer ligacao
             foreach (RoomGraph.Edge edge in plan.Edges.OrderByDescending(e => Priority(plan, e)))
             {
                 if (IsFull(plan, used, edge.A) || IsFull(plan, used, edge.B))

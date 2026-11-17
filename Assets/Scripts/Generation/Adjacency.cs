@@ -2,21 +2,17 @@ using System;
 
 namespace PCG.Generation
 {
-    // regra unica de vizinhanca. trabalha tanto com retangulos soltos
-    // quanto com comodos compostos por varios retangulos
+    // regra de adjacencia, trabalha com comodos vizinhos
     public static class Adjacency
     {
-        // tamanho da borda compartilhada entre dois retangulos
         public static WallSpan Wall(Area a, Area b)
         {
-            // lado a lado: parede vertical, na coluna onde um termina e o outro comeca
             if (a.Right == b.X || b.Right == a.X)
             {
                 int column = a.Right == b.X ? a.Right : b.Right;
                 return Span(true, column, a.Y, a.Bottom, b.Y, b.Bottom);
             }
 
-            // um em cima do outro: parede horizontal
             if (a.Bottom == b.Y || b.Bottom == a.Y)
             {
                 int row = a.Bottom == b.Y ? a.Bottom : b.Bottom;
@@ -57,7 +53,6 @@ namespace PCG.Generation
             return Wall(a, b).Length >= minShared;
         }
 
-        // monta o trecho onde os intervalos [startA, endA) e [startB, endB) se cruzam
         private static WallSpan Span(bool vertical, int line,
                                      int startA, int endA, int startB, int endB)
         {
